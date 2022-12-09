@@ -9,7 +9,10 @@
   },
   "dependencies": {
     "core-js": "^3.8.3",
-    "vue": "^3.2.13"
+    "firebase": "^9.12.1",
+    "vue": "^3.2.41",
+    "vuetify": "^v3.0.0-beta.13",
+    "@vuepic/vue-datepicker": "^3.5.2"
   },
   "devDependencies": {
     "@babel/core": "^7.12.16",
@@ -18,7 +21,8 @@
     "@vue/cli-plugin-eslint": "~5.0.0",
     "@vue/cli-service": "~5.0.0",
     "eslint": "^7.32.0",
-    "eslint-plugin-vue": "^8.0.3"
+    "eslint-plugin-vue": "^8.0.3",
+    "webpack-plugin-vuetify": "^2.0.0"
   },
   "eslintConfig": {
     "root": true,
