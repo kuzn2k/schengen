@@ -2,19 +2,29 @@
   <v-container fluid v-if="expirationDate && allowedDays">
     <v-card border density="comfortable">
       <v-card-title v-if="abroad">
-        Current trip
+        <p v-if="tripAllowed">
+          Current trip
+        </p>
+        <p v-else>
+          Visa violation
+        </p>
       </v-card-title>
       <v-card-title v-else>
-        Next trip
+        <p v-if="tripAllowed">
+          Next trip
+        </p>
+        <p v-else>
+          Trip is not allowed
+        </p>
       </v-card-title>
       <v-container v-if="abroad">
         <v-row>
           <v-col>Used days:</v-col><v-col>{{ spendDays }}</v-col>
         </v-row>
-        <v-row>
+        <v-row v-if="tripAllowed">
           <v-col>Days in the rest:</v-col><v-col>{{ maxAllowedDays }}</v-col>
         </v-row>
-        <v-row>
+        <v-row v-if="tripAllowed">
           <v-col>You must leave on:</v-col><v-col>{{ showUTCDate(dayToExit) }}</v-col>
         </v-row>
       </v-container>
@@ -22,18 +32,12 @@
         <v-row>
           <v-col>Used days:</v-col><v-col>{{ spendDays }}</v-col>
         </v-row>
-        <v-row>
-          <v-col>Days in the rest:</v-col><v-col>{{ maxAllowedDays }}</v-col>
+        <v-row v-if="tripAllowed">
+          <v-col>Available days:</v-col><v-col>{{ maxAllowedDays }}</v-col>
         </v-row>
-        <v-row>
-          <v-col>You can enter on:</v-col><v-col>{{ showUTCDate(nextAllowedEnterDate) }}</v-col>
-        </v-row>
-        <v-row>
-          <v-col>You must leave on:</v-col><v-col>{{ showUTCDate(dayToExit) }}</v-col>
-        </v-row>      
       </v-container>
     </v-card>
-    <v-card border density="comfortable">
+    <v-card border density="comfortable" v-if="tripAllowed">
       <v-card-title>Trip planning</v-card-title>
       <v-container>
         <v-row>
@@ -54,6 +58,9 @@
         </v-row>
       </v-container>
       <v-container>
+        <v-row>
+          <v-col>Maximum trip duration:</v-col><v-col>{{ plannedTrip.allowedDays }}</v-col>
+        </v-row>
         <v-row>
           <v-col>You can enter on:</v-col><v-col>{{ showUTCDate(plannedTrip.tripStartDate) }}</v-col>
         </v-row>
@@ -86,8 +93,8 @@ export default {
       nextAllowedEnterDate: null,
       dayToExit: null,
       tripDurations: [],
-      unsubscribe: null,
       userLocale: null,
+      tripAllowed: false,
       dayLength: 24 * 3600 * 1000,
       visaWindow: 180
     }
@@ -97,12 +104,6 @@ export default {
         navigator.languages && navigator.languages.length
             ? navigator.languages[0]
             : navigator.language
-  },
-  unmounted() {
-    if (this.unsubscribe) {
-      this.unsubscribe()
-      this.unsubscribe = null
-    }
   },
   computed: {
     minDate() {
@@ -125,22 +126,23 @@ export default {
     uid(newUid, oldUid) {
       if (newUid != null && newUid !== oldUid) {
         this.onChange(newUid)
-      } else if (newUid == null) {
-        if (this.unsubscribe) {
-          this.unsubscribe()
-          this.unsubscribe = null
-        }
       }
       this.desirableDate = null
     },
     allowedDays(newDays, oldDays) {
-      if (newDays !== oldDays && this.uid) {
+      if (newDays != null && newDays !== oldDays && this.expirationDate && this.uid) {
+        this.onChange(this.uid)
+        this.desirableDate = null
+      }
+    },
+    expirationDate(newDate, oldDate) {
+      if (newDate != null && newDate !== oldDate && this.allowedDays && this.uid) {
         this.onChange(this.uid)
         this.desirableDate = null
       }
     },
     abroad(newFlaf, oldFlag) {
-      if (oldFlag && newFlaf !== oldFlag && this.uid)
+      if (oldFlag && newFlaf != oldFlag && this.allowedDays && this.expirationDate && this.uid)
       {
         this.onChange(this.uid)
       }
@@ -168,7 +170,7 @@ export default {
     },
     async calculatePlannedTrip(uid, startDate) {
       let tripInfo = {}
-      if (this.db != null && this.collectionName != null && this.allowedDays) {
+      if (this.db != null && this.collectionName != null && this.allowedDays && this.expirationDate) {
           const collectionRef = collection(this.db, this.collectionName, uid, "trips")
           const startOfToday = new Date(startDate.getTime())
           startOfToday.setUTCHours(0, 0, 0, 0)
@@ -246,14 +248,27 @@ export default {
                               console.log("Trip is not possible.  Violation visa rules within visa window")
                             }
                           }
-                          return {
-                                      allowed: tripAllowed,
+                          if (startDate > this.expirationDate) {
+                            return {
+                                      allowed: false,
+                                      spendDays: spendDaysAtDate,
+                                      allowedDays: 0,
+                                      duration: 0
+                                  }
+                          } else {
+                            if (nextTripLastDate > this.expirationDate) {
+                              allowedDaysAtDate = allowedDaysAtDate - (nextTripLastDate - this.expirationDate) /  this.dayLength
+                              nextTripLastDate = this.expirationDate
+                            }
+                            return {
+                                      allowed: spendDaysAtDate <= this.allowedDays ? tripAllowed : false,
                                       spendDays: spendDaysAtDate,
                                       allowedDays: allowedDaysAtDate,
                                       tripStartDate: nextTripEnterDate,
-                                      tripEndDate: nextTripLastDate > this.expirationDate ? this.expirationDate : nextTripLastDate,
+                                      tripEndDate: nextTripLastDate,
                                       duration: tripDuration
                                   }
+                          }
                         })
                         .catch((error) => console.log("Get docs error: " + error.message))
       }
@@ -264,6 +279,7 @@ export default {
       let currentInfo = await this.calculatePlannedTrip(uid, new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0)))
       this.spendDays = currentInfo.spendDays
       this.maxAllowedDays = currentInfo.allowedDays
+      this.tripAllowed = currentInfo.allowed
       if (currentInfo.allowed) {
         this.nextAllowedEnterDate = currentInfo.tripStartDate
         this.dayToExit = currentInfo.tripEndDate

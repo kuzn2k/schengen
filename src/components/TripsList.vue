@@ -1,72 +1,74 @@
 <template>
-  <v-card border density="comfortable">
-    <v-card-title>
-      Your trips
-    </v-card-title>
-    <v-card-subtitle>Add/Delete trips</v-card-subtitle>
-    <v-container fluid>
-      <v-row>
-        <v-col cols="12">
-          <v-card border density="comfortable" v-for="item in trips" :key="item.idx">
-            <v-container fluid>
-              <v-row>
-                <v-col>Start date:</v-col>
-                <v-col>
-                  <Datepicker v-model="item.localStart"
-                              required
-                              autoApply
-                              :disabled="!item.edit"
-                              :enableTimePicker="false"
-                              :locale="userLocale"
-                              :format="formatDate"
-                              :previewFormat="formatDate"
-                              modelType="timestamp"
-                              @update:modelValue="item.changed = true"/>
-                </v-col>
-              </v-row>
-              <v-row>
-                <v-col><v-switch v-model="item.abroad" label="Abroad now" :disabled="!item.edit" @update:modelValue="item.changed = true"></v-switch></v-col>
-              </v-row>
-              <v-row>
-                <v-col>End date:</v-col>
-                <v-col>
-                  <Datepicker v-model="item.localEnd"
-                              autoApply
-                              :disabled="item.abroad || !item.edit"
-                              :enableTimePicker="false"
-                              :locale="userLocale"
-                              :format="formatDate"
-                              :previewFormat="formatDate"
-                              modelType="timestamp"
-                              @update:modelValue="item.changed = true"
-                  />
-                </v-col>
-              </v-row>
-            </v-container>
-            <v-card-actions>
-              <v-btn v-if="!item.changed" @click="editTrip(item)">
-                Edit
-              </v-btn>
-              <v-btn v-if="item.changed" @click="saveTrip(item)">
-                Save
-              </v-btn>
-              <v-btn v-if="item.changed" @click="revertTrip(item)">
-                Cancel
-              </v-btn>
-              <v-btn @click="deleteTrip(item)">
-                Delete
-              </v-btn>
-            </v-card-actions>
-          </v-card>
-        </v-col>
-      </v-row>
-    </v-container>
-    <v-card-actions>
-      <v-btn @click="addTrip">
-        Add
-      </v-btn>
-    </v-card-actions>
-  </v-card>
+  <v-container fluid>
+    <v-card border density="comfortable">
+      <v-card-title>
+        Your trips
+      </v-card-title>
+      <v-card-subtitle>Add/Delete trips</v-card-subtitle>
+      <v-container fluid>
+        <v-row>
+          <v-col cols="12">
+            <v-card border density="comfortable" v-for="item in trips" :key="item.idx">
+              <v-container fluid>
+                <v-row>
+                  <v-col>Start date:</v-col>
+                  <v-col>
+                    <Datepicker v-model="item.localStart"
+                                required
+                                autoApply
+                                :disabled="!item.edit"
+                                :enableTimePicker="false"
+                                :locale="userLocale"
+                                :format="formatDate"
+                                :previewFormat="formatDate"
+                                modelType="timestamp"
+                                @update:modelValue="item.changed = true"/>
+                  </v-col>
+                </v-row>
+                <v-row>
+                  <v-col><v-switch v-model="item.abroad" label="Abroad now" :disabled="!item.edit" @update:modelValue="item.changed = true"></v-switch></v-col>
+                </v-row>
+                <v-row v-if="!item.abroad">
+                  <v-col>End date:</v-col>
+                  <v-col>
+                    <Datepicker v-model="item.localEnd"
+                                autoApply
+                                :disabled="item.abroad || !item.edit"
+                                :enableTimePicker="false"
+                                :locale="userLocale"
+                                :format="formatDate"
+                                :previewFormat="formatDate"
+                                modelType="timestamp"
+                                @update:modelValue="item.changed = true"
+                    />
+                  </v-col>
+                </v-row>
+              </v-container>
+              <v-card-actions>
+                <v-btn v-if="!item.edit" @click="editTrip(item)">
+                  Edit
+                </v-btn>
+                <v-btn v-if="item.changed" @click="saveTrip(item)">
+                  Save
+                </v-btn>
+                <v-btn v-if="item.edit" @click="revertTrip(item)">
+                  Cancel
+                </v-btn>
+                <v-btn v-if="!item.new" @click="deleteTrip(item)">
+                  Delete
+                </v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-col>
+        </v-row>
+      </v-container>
+      <v-card-actions>
+        <v-btn @click="addTrip">
+          Add
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-container>
 </template>
 
 <script>
@@ -153,9 +155,14 @@ export default {
     revertTrip(item) {
       item.edit = false
       item.changed = false
-      item.localStart = item.oldStartDate
-      item.localEnd = item.oldEndDate
-      item.abroad = !item.localEnd
+      if (item.new)
+      {
+        this.deleteItem(item)
+      } else {
+        item.localStart = item.oldStartDate
+        item.localEnd = item.oldEndDate
+        item.abroad = !item.localEnd
+      }
     },
     saveTrip(item) {
       const localStart = new Date(item.localStart)
@@ -186,6 +193,7 @@ export default {
           console.log("Created trip record: " + item.doc)
           item.changed = false
           item.edit = false
+          item.new = false
         })
       }
       this.abroad = item.abroad
@@ -200,6 +208,7 @@ export default {
         changed: false,
         edit: true,
         abroad: true,
+        new: true
       })
     },
     deleteTrip(item) {
@@ -207,6 +216,7 @@ export default {
         deleteDoc(item.doc).then(() => {
           console.log("Deleted trip record: " + item.doc)
           this.deleteItem(item)
+          this.$emit('update:abroad', this.abroad)
         })
       } else {
         this.deleteItem(item)

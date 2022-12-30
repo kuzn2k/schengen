@@ -14,13 +14,17 @@
         <v-row dense>
           <v-col>
             <v-row>
+              <v-col>
+                <VisaInfo :uid="userUid" :db="db" :collection-name="collectionName"
+                               v-model:expiration-date="expirationDate"
+                               v-model:allowed-days="allowedDays"/>
+              </v-col>
+            </v-row>
+            <v-row>
               <v-col><MainInfo :uid="userUid" :db="db" :collection-name="collectionName"
                            :expiration-date="expirationDate" :allowed-days="allowedDays" :abroad="abroad"/></v-col>
             </v-row>
-            <v-row>
-              <v-col><VisaInfo :uid="userUid" :db="db" :collection-name="collectionName"
-                               v-model:expiration-date="expirationDate"
-                               v-model:allowed-days="allowedDays"/></v-col>
+            <v-row v-if="expirationDate && allowedDays">
               <v-col><TripsList :uid="userUid" :db="db" :collection-name="collectionName" v-model:abroad="abroad"/></v-col>
             </v-row>
           </v-col>

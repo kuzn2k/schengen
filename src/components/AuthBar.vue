@@ -5,7 +5,7 @@
     <v-tooltip
       activator="parent"
       location="bottom"
-    >Anonymous</v-tooltip>
+    >Demo</v-tooltip>
   </v-btn>
   <v-btn icon @click="loginByGoogle" v-if="!loggedIn">
     <v-icon icon="mdi-google"></v-icon>

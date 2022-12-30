@@ -1,50 +1,36 @@
 <template>
+  <v-container fluid>
     <v-card border density="comfortable">
       <v-card-title>
         Visa information
       </v-card-title>
-      <v-card-subtitle>Edit data</v-card-subtitle>
       <v-form ref="form"
               v-model="valid">
         <v-container>
           <v-row>
             <v-col>
-              <v-text-field
-                  v-model="mainCountry"
-                  :rules="countryRules"
-                  label="Main country"
-                  required
-                  hint="Country that issued visa"
-              ></v-text-field>
+              <v-row>
+                <v-col cols="3">Expiration date:</v-col>
+                <v-col cols="4">
+                  <Datepicker v-model="localExpirationDate"
+                              autoApply
+                              required
+                              :enableTimePicker="false"
+                              :locale="userLocale"
+                              :format="formatDate"
+                              :previewFormat="formatDate"
+                              modelType="timestamp"/>
+                </v-col>
+              </v-row>
             </v-col>
-          </v-row>
-          <v-row>
-            <v-col cols="3">Expiration date:</v-col>
-            <v-col cols="9">
-              <Datepicker v-model="localExpirationDate"
-                          autoApply
-                          required
-                          :enableTimePicker="false"
-                          :locale="userLocale"
-                          :format="formatDate"
-                          :previewFormat="formatDate"
-                          modelType="timestamp"/>
-            </v-col>
-          </v-row>
-          <v-row>
-            <v-col>
+            <v-col cols="3">Allowed days:</v-col>
+            <v-col cols="2">
               <v-text-field
                   v-model="allowedDays"
                   :rules="daysRules"
-                  label="Allowed days"
                   required
                   hint="Allowed staying days in Schengen within 180 days"
               ></v-text-field>
-            </v-col>
-          </v-row>
-          <v-row>
-            <v-col>
-              <v-switch v-model="isMulti" label="Multi"></v-switch>
             </v-col>
           </v-row>
         </v-container>
@@ -60,6 +46,7 @@
         </v-btn>
       </v-card-actions>
     </v-card>
+  </v-container>
 </template>
 
 <script>
@@ -76,15 +63,9 @@ export default {
     return {
       valid: true,
       changed: false,
-      mainCountry: null,
       localExpirationDate: null,
       expirationDate: null,
       allowedDays: null,
-      isMulti: false,
-      countryRules: [
-        v => !!v || 'County name is required',
-        v => (v && v.length >= 3) || 'County name must be at least 3 characters',
-      ],
       daysRules: [
         v => !!v || 'Number is required',
         v => (v && v.length >= 1 && v.length <= 2 && new RegExp('^[1-9][0-9]*$').test(v) && v <= 90) || 'Number is required and it should be no more than 90',
@@ -97,9 +78,6 @@ export default {
       if (newUid != null && newUid !== oldUid) {
         this.loadData(newUid)
       }
-    },
-    mainCountry(newCounty, oldCountry) {
-      this.changed = newCounty !== oldCountry
     },
     allowedDays(newDays, oldDays) {
       this.changed = newDays !== oldDays
@@ -119,9 +97,6 @@ export default {
         }
         this.$emit('update:expirationDate', this.expirationDate)
       }
-    },
-    isMulti(newMulti, oldMulti) {
-      this.changed = newMulti !== oldMulti
     }
   },
   mounted() {
@@ -139,9 +114,7 @@ export default {
         getDoc(docRef).then((docSnap) => {
           if (docSnap.exists()) {
             const visaInfo = docSnap.data()
-            this.mainCountry = visaInfo.mainCountry
             this.allowedDays = visaInfo.allowedDays
-            this.isMulti = visaInfo.multi
             this.localExpirationDate = null
             if (visaInfo.expirationDate) {
               this.expirationDate = new Date(visaInfo.expirationDate)
@@ -150,11 +123,9 @@ export default {
             console.log("Loaded document for " + uid + " (db=" + this.db + ")")
             console.log("Expiration date " + this.expirationDate)
           } else {
-            this.mainCountry = null
             this.expirationDate = null
             this.localExpirationDate = null
             this.allowedDays = null
-            this.isMulti = false
             console.log("No journey information for " + uid)
           }
           this.$emit('update:expirationDate', this.expirationDate)
@@ -171,8 +142,6 @@ export default {
         let expirationDateMillis = this.expirationDate ? this.expirationDate.getTime() : null
         setDoc(ref, {
           allowedDays: this.allowedDays,
-          mainCountry: this.mainCountry,
-          multi: this.isMulti,
           expirationDate: expirationDateMillis
         }, { merge: true }).then(() => {
           this.$emit('update:expirationDate', this.expirationDate)
