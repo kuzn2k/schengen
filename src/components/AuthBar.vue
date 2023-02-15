@@ -32,7 +32,7 @@
 </template>
 
 <script>
-import { GoogleAuthProvider, GithubAuthProvider, signInWithPopup, linkWithPopup, signOut, getAuth, onAuthStateChanged, signInAnonymously } from "firebase/auth"
+import { GoogleAuthProvider, GithubAuthProvider, signInWithPopup, linkWithPopup, signOut, getAuth, onAuthStateChanged, signInAnonymously, signInWithEmailAndPassword } from "firebase/auth"
 
 
 export default {
@@ -43,6 +43,8 @@ export default {
     return {
       showMessage: false,
       message: '',
+      uid: null,
+      password: null,
       loggedIn: false,
       anonymous: true
     }
@@ -59,6 +61,25 @@ export default {
             console.log(this.message)
             this.showMessage = true
           });
+    },
+    loginByEmail() {
+      const auth = getAuth()
+      if (this.loggedIn && this.anonymous) {
+        // TODO merge email account to anonymous
+      } else {
+        signInWithEmailAndPassword(auth, this.uid, this.password)
+          .then((userCredential) => {
+              const user = userCredential.user
+              console.log('Login as ' + user.email)
+              return userCredential
+            }).catch((error) => {
+              const errorCode = error.code
+              const email = error.customData.email
+              this.message = 'Cannot login ' + email + ': [' + errorCode + '] ' + error.message
+              console.log(this.message)
+              this.showMessage = true
+            })
+      }
     },
     loginByGoogle() {
       const provider = new GoogleAuthProvider();

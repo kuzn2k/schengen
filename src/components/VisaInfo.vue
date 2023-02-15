@@ -2,47 +2,50 @@
   <v-container fluid>
     <v-card border density="comfortable">
       <v-card-title>
-        Visa information
+        Schengen Visa information
       </v-card-title>
-      <v-form ref="form"
-              v-model="valid">
-        <v-container>
+      <v-card-subtitle v-if="!(allowedDays && expirationDate)">Please set expiration date and allowed days</v-card-subtitle>
+      <v-form ref="form" v-model="valid">
+        <v-card-text>
           <v-row>
+            <v-col>Expiration date:</v-col>
             <v-col>
-              <v-row>
-                <v-col cols="3">Expiration date:</v-col>
-                <v-col cols="4">
-                  <Datepicker v-model="localExpirationDate"
-                              autoApply
-                              required
-                              :enableTimePicker="false"
-                              :locale="userLocale"
-                              :format="formatDate"
-                              :previewFormat="formatDate"
-                              modelType="timestamp"/>
-                </v-col>
-              </v-row>
+              <Datepicker v-model="localExpirationDate"
+                          autoApply
+                          required
+                          :enableTimePicker="false"
+                          :locale="userLocale"
+                          :format="formatDate"
+                          :previewFormat="formatDate"
+                          modelType="timestamp"
+                          @update:modelValue="changed = true"/>
             </v-col>
-            <v-col cols="3">Allowed days:</v-col>
-            <v-col cols="2">
+          </v-row>
+          <v-row>
+            <v-col>Allowed days:</v-col>
+            <v-col>
               <v-text-field
                   v-model="allowedDays"
                   :rules="daysRules"
                   required
                   hint="Allowed staying days in Schengen within 180 days"
+                  @update:modelValue="changed = true"
               ></v-text-field>
             </v-col>
           </v-row>
-        </v-container>
+        </v-card-text>
       </v-form>
-
-      <v-card-actions>
+      <v-card-actions v-if="changed">
+        <v-spacer></v-spacer>
         <v-btn
             :disabled="!valid || !changed"
-            color="success"
             @click="save"
         >
           Save
+        </v-btn>
+        <v-btn @click="revert"
+        >
+          Cancel
         </v-btn>
       </v-card-actions>
     </v-card>
@@ -58,7 +61,7 @@ export default {
   name: 'VisaInfo',
   components: { Datepicker },
   props: ['uid', 'db', 'collectionName'],
-  emits: ['update:expirationDate', 'update:allowedDays'],
+  emits: ['update:expirationDate', 'update:allowedDays', 'update:refresh'],
   data() {
     return {
       valid: true,
@@ -74,20 +77,8 @@ export default {
     }
   },
   watch: {
-    uid(newUid, oldUid) {
-      if (newUid != null && newUid !== oldUid) {
-        this.loadData(newUid)
-      }
-    },
-    allowedDays(newDays, oldDays) {
-      this.changed = newDays !== oldDays
-      if (this.changed) {
-        this.$emit('update:allowedDays', this.allowedDays)
-      }
-    },
     localExpirationDate(newDate, oldDate) {
-      this.changed = newDate !== oldDate
-      if (this.changed) {
+      if (newDate !== oldDate) {
         if (newDate) {
           const newLocalDate = new Date(newDate)
           this.expirationDate = new Date(Date.UTC(newLocalDate.getFullYear(), newLocalDate.getMonth(), newLocalDate.getDate(), 23, 59, 59, 999))
@@ -95,7 +86,6 @@ export default {
         else {
           this.expirationDate = null
         }
-        this.$emit('update:expirationDate', this.expirationDate)
       }
     }
   },
@@ -105,12 +95,12 @@ export default {
             ? navigator.languages[0]
             : navigator.language
     console.log("Locale=" + this.userLocale)
-    this.loadData(this.uid)
+    this.loadData()
   },
   methods: {
-    loadData(uid) {
-      if (uid != null && this.db != null && this.collectionName != null) {
-        const docRef = doc(this.db, this.collectionName, uid);
+    loadData() {
+      if (this.uid != null && this.db != null && this.collectionName != null) {
+        const docRef = doc(this.db, this.collectionName, this.uid);
         getDoc(docRef).then((docSnap) => {
           if (docSnap.exists()) {
             const visaInfo = docSnap.data()
@@ -120,21 +110,25 @@ export default {
               this.expirationDate = new Date(visaInfo.expirationDate)
               this.localExpirationDate = new Date(this.expirationDate.getUTCFullYear(), this.expirationDate.getUTCMonth(), this.expirationDate.getUTCDate(), 23, 59, 59, 999)
             }
-            console.log("Loaded document for " + uid + " (db=" + this.db + ")")
+            console.log("Loaded document for " + this.uid + " (db=" + this.db + ")")
             console.log("Expiration date " + this.expirationDate)
           } else {
             this.expirationDate = null
             this.localExpirationDate = null
             this.allowedDays = null
-            console.log("No journey information for " + uid)
+            console.log("No journey information for " + this.uid)
           }
           this.$emit('update:expirationDate', this.expirationDate)
           this.$emit('update:allowedDays', this.allowedDays)
+          this.$emit('update:refresh')
           this.changed = false
         })
       } else {
-        console.log("Cannot get document for " + uid + " (db=" + this.db + ")")
+        console.log("Cannot get document for " + this.uid + " (db=" + this.db + ")")
       }
+    },
+    revert () {
+      this.loadData()
     },
     save () {
       if (this.db != null && this.collectionName && this.uid != null ) {
@@ -147,6 +141,7 @@ export default {
           this.$emit('update:expirationDate', this.expirationDate)
           this.$emit('update:allowedDays', this.allowedDays)
           console.log("Saved visa information for uid=" + this.uid)
+          this.$emit('update:refresh')
           this.changed = false
         })
       }

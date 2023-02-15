@@ -10,22 +10,22 @@
       </template>
     </v-app-bar>
     <v-main>
-      <v-container fluid v-if="(isLoggedIn && userUid)">
+      <v-container fluid v-if="isLoggedIn && userUid">
         <v-row dense>
           <v-col>
             <v-row>
               <v-col>
-                <VisaInfo :uid="userUid" :db="db" :collection-name="collectionName"
+                <VisaInfo ref="visaInfo" :uid="userUid" :db="db" :collection-name="collectionName"
                                v-model:expiration-date="expirationDate"
-                               v-model:allowed-days="allowedDays"/>
+                               v-model:allowed-days="allowedDays" @update:refresh="refresh"/>
               </v-col>
             </v-row>
             <v-row>
-              <v-col><MainInfo :uid="userUid" :db="db" :collection-name="collectionName"
+              <v-col><MainInfo ref="mainInfo" :uid="userUid" :db="db" :collection-name="collectionName"
                            :expiration-date="expirationDate" :allowed-days="allowedDays" :abroad="abroad"/></v-col>
             </v-row>
             <v-row v-if="expirationDate && allowedDays">
-              <v-col><TripsList :uid="userUid" :db="db" :collection-name="collectionName" v-model:abroad="abroad"/></v-col>
+              <v-col><TripsList :uid="userUid" :db="db" :collection-name="collectionName" v-model:abroad="abroad" @update:refresh="refresh"/></v-col>
             </v-row>
           </v-col>
         </v-row>
@@ -68,7 +68,7 @@ export default {
   },
   computed: {
     loggedUserTitle() {
-      return this.isLoggedIn ? this.isAnonymous ? 'Anonymous' : (this.userName != null ? this.userName : '') + (this.email != null ? ' (' + this.email + ')' : '') : 'Please login =>'
+      return this.isLoggedIn ? this.isAnonymous ? 'Demo' : (this.userName != null ? this.userName : '') + (this.email != null ? ' (' + this.email + ')' : '') : 'Please login or click Demo=>'
     }
   },
   mounted() {
@@ -82,6 +82,11 @@ export default {
         this.expirationDate = null
         this.allowedDays = null
       }
+    }
+  },
+  methods: {
+    refresh() {
+      this.$refs.mainInfo.onChange(this.allowedDays, this.expirationDate)
     }
   }
 }

@@ -2,67 +2,70 @@
   <v-container fluid>
     <v-card border density="comfortable">
       <v-card-title>
-        Your trips
+        Your travel history
       </v-card-title>
       <v-card-subtitle>Add/Delete trips</v-card-subtitle>
-      <v-container fluid>
-        <v-row>
-          <v-col cols="12">
-            <v-card border density="comfortable" v-for="item in trips" :key="item.idx">
-              <v-container fluid>
-                <v-row>
-                  <v-col>Start date:</v-col>
-                  <v-col>
-                    <Datepicker v-model="item.localStart"
-                                required
-                                autoApply
-                                :disabled="!item.edit"
-                                :enableTimePicker="false"
-                                :locale="userLocale"
-                                :format="formatDate"
-                                :previewFormat="formatDate"
-                                modelType="timestamp"
-                                @update:modelValue="item.changed = true"/>
-                  </v-col>
-                </v-row>
-                <v-row>
-                  <v-col><v-switch v-model="item.abroad" label="Abroad now" :disabled="!item.edit" @update:modelValue="item.changed = true"></v-switch></v-col>
-                </v-row>
-                <v-row v-if="!item.abroad">
-                  <v-col>End date:</v-col>
-                  <v-col>
-                    <Datepicker v-model="item.localEnd"
-                                autoApply
-                                :disabled="item.abroad || !item.edit"
-                                :enableTimePicker="false"
-                                :locale="userLocale"
-                                :format="formatDate"
-                                :previewFormat="formatDate"
-                                modelType="timestamp"
-                                @update:modelValue="item.changed = true"
-                    />
-                  </v-col>
-                </v-row>
-              </v-container>
-              <v-card-actions>
-                <v-btn v-if="!item.edit" @click="editTrip(item)">
-                  Edit
-                </v-btn>
-                <v-btn v-if="item.changed" @click="saveTrip(item)">
-                  Save
-                </v-btn>
-                <v-btn v-if="item.edit" @click="revertTrip(item)">
-                  Cancel
-                </v-btn>
-                <v-btn v-if="!item.new" @click="deleteTrip(item)">
-                  Delete
-                </v-btn>
-              </v-card-actions>
-            </v-card>
-          </v-col>
-        </v-row>
-      </v-container>
+      <v-card-text>
+        <v-container fluid>
+          <v-row>
+            <v-col cols="12">
+              <v-card border density="comfortable" v-for="item in trips" :key="item.idx">
+                <v-card-text>
+                  <v-container fluid>
+                    <v-row>
+                      <v-col>Start date:</v-col>
+                      <v-col>
+                        <Datepicker v-model="item.localStart"
+                                    required
+                                    autoApply
+                                    :disabled="!item.edit"
+                                    :enableTimePicker="false"
+                                    :locale="userLocale"
+                                    :format="formatDate"
+                                    :previewFormat="formatDate"
+                                    modelType="timestamp"
+                                    @update:modelValue="item.changed = true"/>
+                      </v-col>
+                    </v-row>
+                    <v-row>
+                      <v-col>End date:</v-col>
+                      <v-col>
+                        <Datepicker v-model="item.localEnd"
+                                    autoApply
+                                    :disabled="!item.edit"
+                                    :enableTimePicker="false"
+                                    :locale="userLocale"
+                                    :format="formatDate"
+                                    :previewFormat="formatDate"
+                                    modelType="timestamp"
+                                    @update:modelValue="item.changed = true; item.abroad = !item.localEnd"
+                        />
+                      </v-col>
+                    </v-row>
+                  </v-container>
+                </v-card-text>
+                <v-card-actions>
+                  <v-spacer></v-spacer>
+                  <v-btn v-if="!item.edit" @click="editTrip(item)">
+                    Edit
+                  </v-btn>
+                  <v-btn v-if="item.changed" @click="saveTrip(item)">
+                    Save
+                  </v-btn>
+                  <v-btn v-if="item.edit" @click="revertTrip(item)">
+                    Cancel
+                  </v-btn>
+                  <v-btn v-if="!item.new" @click="deleteTrip(item)">
+                    Delete
+                  </v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-col>
+          </v-row>
+        </v-container>
+      </v-card-text>
       <v-card-actions>
+        <v-spacer></v-spacer>
         <v-btn @click="addTrip">
           Add
         </v-btn>
@@ -80,7 +83,7 @@ export default {
   name: 'TripInfo',
   components: { Datepicker },
   props: ['uid', 'db', 'collectionName'],
-  emits: ['update:abroad', 'refresh'],
+  emits: ['update:abroad', 'update:refresh'],
   data() {
     return {
       abroad: false,
@@ -168,7 +171,7 @@ export default {
       const localStart = new Date(item.localStart)
       const startDay = new Date(Date.UTC(localStart.getFullYear(), localStart.getMonth(), localStart.getDate(), 0, 0, 0, 0))
       let endDay = null
-      if (!item.abroad && item.localEnd) {
+      if (item.localEnd) {
         const localEnd = new Date(item.localEnd)
         endDay = new Date(Date.UTC(localEnd.getFullYear(), localEnd.getMonth(), localEnd.getDate(), 23, 59, 59, 999))
       } else {
@@ -184,6 +187,9 @@ export default {
               console.log("Updated trip record: " + item.doc)
               item.changed = false
               item.edit = false
+              this.abroad = item.abroad
+              this.$emit('update:abroad', this.abroad)
+              this.$emit('update:refresh')
             }
         )
       } else {
@@ -194,10 +200,11 @@ export default {
           item.changed = false
           item.edit = false
           item.new = false
+          this.abroad = item.abroad
+          this.$emit('update:abroad', this.abroad)
+          this.$emit('update:refresh')
         })
       }
-      this.abroad = item.abroad
-      this.$emit('update:abroad', this.abroad)
     },
     addTrip() {
       const newIdx = this.trips.length
@@ -216,7 +223,10 @@ export default {
         deleteDoc(item.doc).then(() => {
           console.log("Deleted trip record: " + item.doc)
           this.deleteItem(item)
+          const count = this.trips.length
+          this.abroad = count > 0 ? this.trips[count - 1].abroad : false
           this.$emit('update:abroad', this.abroad)
+          this.$emit('update:refresh')
         })
       } else {
         this.deleteItem(item)

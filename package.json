@@ -8,11 +8,12 @@
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
+    "@vuepic/vue-datepicker": "^3.5.2",
     "core-js": "^3.8.3",
     "firebase": "^9.12.1",
+    "firebase-tools": "^11.23.1",
     "vue": "^3.2.41",
-    "vuetify": "^v3.0.0-beta.13",
-    "@vuepic/vue-datepicker": "^3.5.2"
+    "vuetify": "^v3.0.0-beta.13"
   },
   "devDependencies": {
     "@babel/core": "^7.12.16",

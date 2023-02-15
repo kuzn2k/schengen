@@ -3,75 +3,59 @@
     <v-card border density="comfortable">
       <v-card-title v-if="abroad">
         <p v-if="tripAllowed">
-          Current trip
+          Current journey
         </p>
         <p v-else>
           Visa violation
         </p>
       </v-card-title>
       <v-card-title v-else>
-        <p v-if="tripAllowed">
-          Next trip
-        </p>
-        <p v-else>
-          Trip is not allowed
-        </p>
+        Journey planning
       </v-card-title>
-      <v-container v-if="abroad">
-        <v-row>
-          <v-col>Used days:</v-col><v-col>{{ spendDays }}</v-col>
-        </v-row>
-        <v-row v-if="tripAllowed">
-          <v-col>Days in the rest:</v-col><v-col>{{ maxAllowedDays }}</v-col>
-        </v-row>
-        <v-row v-if="tripAllowed">
-          <v-col>You must leave on:</v-col><v-col>{{ showUTCDate(dayToExit) }}</v-col>
-        </v-row>
-      </v-container>
-      <v-container v-else>
-        <v-row>
-          <v-col>Used days:</v-col><v-col>{{ spendDays }}</v-col>
-        </v-row>
-        <v-row v-if="tripAllowed">
-          <v-col>Available days:</v-col><v-col>{{ maxAllowedDays }}</v-col>
-        </v-row>
-      </v-container>
+      <v-card-text>
+        <v-container v-if="abroad">
+          <v-row>
+            <v-col>Already used days:</v-col><v-col>{{ spendDays }}</v-col>
+          </v-row>
+          <v-row v-if="tripAllowed">
+            <v-col>Days in the rest:</v-col><v-col>{{ maxAllowedDays }}</v-col>
+          </v-row>
+          <v-row v-if="tripAllowed">
+            <v-col>You must leave on:</v-col><v-col>{{ showUTCDate(dayToExit) }}</v-col>
+          </v-row>
+        </v-container>
+        <v-container v-else>
+          <v-row>
+            <v-col>Already used days:</v-col><v-col>{{ spendDays }}</v-col>
+          </v-row>
+          <v-row>
+            <v-col>Journey start date:</v-col>
+            <v-col>
+              <Datepicker v-model="desirableDate"
+                          autoApply
+                          required
+                          :enableTimePicker="false"
+                          :locale="userLocale"
+                          :format="formatDate"
+                          :previewFormat="formatDate"
+                          prevent-min-max-navigation
+                          :min-date="minDate"
+                          :max-date="maxDate"
+                          modelType="timestamp"/>
+            </v-col>
+          </v-row>
+          <v-row>
+            <v-col>Maximum duration (days):</v-col><v-col>{{ plannedTrip.duration }}</v-col>
+          </v-row>
+          <v-row>
+            <v-col>You can enter on:</v-col><v-col>{{ showUTCDate(plannedTrip.tripStartDate) }}</v-col>
+          </v-row>
+          <v-row>
+            <v-col>You must leave on:</v-col><v-col>{{ showUTCDate(plannedTrip.tripEndDate) }}</v-col>
+          </v-row>
+        </v-container>
+      </v-card-text>
     </v-card>
-    <v-card border density="comfortable" v-if="tripAllowed">
-      <v-card-title>Trip planning</v-card-title>
-      <v-container>
-        <v-row>
-          <v-col cols="3">Desirable start date:</v-col>
-          <v-col cols="9">
-            <Datepicker v-model="desirableDate"
-                        autoApply
-                        required
-                        :enableTimePicker="false"
-                        :locale="userLocale"
-                        :format="formatDate"
-                        :previewFormat="formatDate"
-                        prevent-min-max-navigation
-                        :min-date="minDate"
-                        :max-date="maxDate"
-                        modelType="timestamp"/>
-          </v-col>
-        </v-row>
-      </v-container>
-      <v-container>
-        <v-row>
-          <v-col>Maximum trip duration:</v-col><v-col>{{ plannedTrip.allowedDays }}</v-col>
-        </v-row>
-        <v-row>
-          <v-col>You can enter on:</v-col><v-col>{{ showUTCDate(plannedTrip.tripStartDate) }}</v-col>
-        </v-row>
-        <v-row>
-          <v-col>You must leave on:</v-col><v-col>{{ showUTCDate(plannedTrip.tripEndDate) }}</v-col>
-        </v-row>
-      </v-container>
-    </v-card>
-  </v-container>
-  <v-container fluid v-else>
-    Please fill visa information
   </v-container>
 </template>
 
@@ -83,10 +67,11 @@ import Datepicker from '@vuepic/vue-datepicker';
 export default {
   name: 'MainInfo',
   components: { Datepicker },
+  expose: ['onChange'],
   props: ['uid', 'db', 'collectionName', 'expirationDate', 'allowedDays', 'abroad'],
   data() {
     return {
-      desirableDate: null,
+      desirableDate: new Date(),
       plannedTrip: {},
       spendDays: null,
       maxAllowedDays: null,
@@ -108,6 +93,10 @@ export default {
   computed: {
     minDate() {
       let now = new Date()
+      if (!this.planTrip.allowed && this.planTrip.tripStartDate)
+      {
+        now = this.planTrip.tripStartDate
+      }
       now.setHours(0, 0, 0, 0)
       return now
     },
@@ -123,34 +112,9 @@ export default {
     },
   }, 
   watch: {
-    uid(newUid, oldUid) {
-      if (newUid != null && newUid !== oldUid) {
-        this.onChange(newUid)
-      }
-      this.desirableDate = null
-    },
-    allowedDays(newDays, oldDays) {
-      if (newDays != null && newDays !== oldDays && this.expirationDate && this.uid) {
-        this.onChange(this.uid)
-        this.desirableDate = null
-      }
-    },
-    expirationDate(newDate, oldDate) {
-      if (newDate != null && newDate !== oldDate && this.allowedDays && this.uid) {
-        this.onChange(this.uid)
-        this.desirableDate = null
-      }
-    },
-    abroad(newFlaf, oldFlag) {
-      if (oldFlag && newFlaf != oldFlag && this.allowedDays && this.expirationDate && this.uid)
-      {
-        this.onChange(this.uid)
-      }
-    },
     async desirableDate(newPlannedDate, oldPlannedDate) {
       if (this.uid && newPlannedDate && newPlannedDate !== oldPlannedDate) {
-        let startDate = new Date(newPlannedDate)
-        this.plannedTrip = await this.calculatePlannedTrip(this.uid, new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0)))
+        this.plannedTrip = await this.planTrip(newPlannedDate)
       } else {
         this.plannedTrip = {}
       }
@@ -168,9 +132,9 @@ export default {
       }
       return print
     },
-    async calculatePlannedTrip(uid, startDate) {
+    async calculatePlannedTrip(uid, startDate, allowedDays, expirationDate) {
       let tripInfo = {}
-      if (this.db != null && this.collectionName != null && this.allowedDays && this.expirationDate) {
+      if (this.db != null && this.collectionName != null && allowedDays && expirationDate) {
           const collectionRef = collection(this.db, this.collectionName, uid, "trips")
           const startOfToday = new Date(startDate.getTime())
           startOfToday.setUTCHours(0, 0, 0, 0)
@@ -189,10 +153,10 @@ export default {
           tripInfo = await getDocs(tripsQuery)
                         .then((querySnap) => {
                           let spendDaysAtDate = 0
-                          let allowedDaysAtDate = this.allowedDays
+                          let allowedDaysAtDate = allowedDays
                           let nextAllowedEnterDayOffset = 0
-                          let tripEndDayOffset = this.allowedDays - 1
-                          let tripDuration = this.allowedDays
+                          let tripEndDayOffset = allowedDays - 1
+                          let tripDuration = allowedDays
                           let tripAllowed = true
                           let nextTripEnterDate = new Date(startOfToday.getTime())
                           let nextTripLastDate = new Date(endOfToday.getTime() + tripEndDayOffset * this.dayLength)
@@ -211,10 +175,10 @@ export default {
                               spendDaysAtDate += pastTimeline[i]
                               daySpendTimeline[i] = spendDaysAtDate
                             }
-                            allowedDaysAtDate = this.allowedDays - spendDaysAtDate
+                            allowedDaysAtDate = allowedDays - spendDaysAtDate
                             tripAllowed = false
                             for (let i = 0; i < this.visaWindow; i++) {
-                              if (daySpendTimeline[i] < this.allowedDays) {
+                              if (daySpendTimeline[i] < allowedDays) {
                                 tripAllowed = true
                                 tripDuration = 0
                                 tripEndDayOffset = nextAllowedEnterDayOffset
@@ -228,7 +192,7 @@ export default {
                             if (tripAllowed) {
                               tripDuration = 1
                               for (let i = tripEndDayOffset; i < this.visaWindow; i++) {
-                                if (daySpendTimeline[i] + tripDuration > this.allowedDays) {
+                                if (daySpendTimeline[i] + tripDuration > allowedDays) {
                                   tripDuration--
                                   tripEndDayOffset--
                                   break
@@ -248,7 +212,7 @@ export default {
                               console.log("Trip is not possible.  Violation visa rules within visa window")
                             }
                           }
-                          if (startDate > this.expirationDate) {
+                          if (startDate > expirationDate) {
                             return {
                                       allowed: false,
                                       spendDays: spendDaysAtDate,
@@ -256,12 +220,12 @@ export default {
                                       duration: 0
                                   }
                           } else {
-                            if (nextTripLastDate > this.expirationDate) {
-                              allowedDaysAtDate = allowedDaysAtDate - (nextTripLastDate - this.expirationDate) /  this.dayLength
-                              nextTripLastDate = this.expirationDate
+                            if (nextTripLastDate > expirationDate) {
+                              allowedDaysAtDate = allowedDaysAtDate - (nextTripLastDate - expirationDate) /  this.dayLength
+                              nextTripLastDate = expirationDate
                             }
                             return {
-                                      allowed: spendDaysAtDate <= this.allowedDays ? tripAllowed : false,
+                                      allowed: spendDaysAtDate <= allowedDays ? tripAllowed : false,
                                       spendDays: spendDaysAtDate,
                                       allowedDays: allowedDaysAtDate,
                                       tripStartDate: nextTripEnterDate,
@@ -274,11 +238,15 @@ export default {
       }
       return tripInfo
     },
-    async onChange(uid) {
+    async planTrip(newPlannedDate) {
+      let startDate = new Date(newPlannedDate)
+      return this.calculatePlannedTrip(this.uid, new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0)), this.allowedDays, this.expirationDate)
+    },
+    async onChange(allowedDays, expirationDate) {
       let startDate = new Date()
-      let currentInfo = await this.calculatePlannedTrip(uid, new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0)))
+      let currentInfo = await this.calculatePlannedTrip(this.uid, new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0)), allowedDays, expirationDate)
       this.spendDays = currentInfo.spendDays
-      this.maxAllowedDays = currentInfo.allowedDays
+      this.maxAllowedDays = currentInfo.duration
       this.tripAllowed = currentInfo.allowed
       if (currentInfo.allowed) {
         this.nextAllowedEnterDate = currentInfo.tripStartDate
@@ -286,6 +254,17 @@ export default {
       } else {
         this.nextAllowedEnterDate = null
         this.dayToExit = null
+      }
+      if (!this.desirableDate)
+      {
+        this.plannedTrip = currentInfo
+      } else {
+        const journeyDate = new Date(this.desirableDate)
+        if (startDate.getFullYear() !== journeyDate.getFullYear() || startDate.getMonth() !== journeyDate.getMonth() || startDate.getDate() !== journeyDate.getDate()) {
+          this.plannedTrip = await this.planTrip(this.desirableDate)
+        } else {
+          this.plannedTrip = currentInfo
+        }
       }
     }
   }
