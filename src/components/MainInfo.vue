@@ -2,7 +2,7 @@
   <v-container fluid v-if="expirationDate && allowedDays">
     <v-card border density="comfortable">
       <v-card-title v-if="abroad">
-        <p v-if="tripAllowed">
+        <p v-if="!violation">
           Current journey
         </p>
         <p v-else>
@@ -17,10 +17,10 @@
           <v-row>
             <v-col>Already used days:</v-col><v-col>{{ spendDays }}</v-col>
           </v-row>
-          <v-row v-if="tripAllowed">
+          <v-row v-if="!violation">
             <v-col>Days in the rest:</v-col><v-col>{{ maxAllowedDays }}</v-col>
           </v-row>
-          <v-row v-if="tripAllowed">
+          <v-row v-if="!violation">
             <v-col>You must leave on:</v-col><v-col>{{ showUTCDate(dayToExit) }}</v-col>
           </v-row>
         </v-container>
@@ -45,6 +45,17 @@
             </v-col>
           </v-row>
           <v-row>
+            <v-col>Planned staying:</v-col>
+            <v-col>
+              <v-text-field
+                  v-model="expectedDuration"
+                  :rules="durationRules"
+                  hint="Journey duration in days"
+                  clearable
+              ></v-text-field>
+            </v-col>
+          </v-row>
+          <v-row>
             <v-col>Maximum duration (days):</v-col><v-col>{{ plannedTrip.duration }}</v-col>
           </v-row>
           <v-row>
@@ -52,6 +63,9 @@
           </v-row>
           <v-row>
             <v-col>You must leave on:</v-col><v-col>{{ showUTCDate(plannedTrip.tripEndDate) }}</v-col>
+          </v-row>
+          <v-row>
+            <v-col>Allowed days after trip:</v-col><v-col>{{ plannedTrip.allowedDaysAfter }}</v-col>
           </v-row>
         </v-container>
       </v-card-text>
@@ -61,8 +75,9 @@
 
 <script>
 
-import {collection, orderBy, where, query, getDocs} from "firebase/firestore";
-import Datepicker from '@vuepic/vue-datepicker';
+import {collection, orderBy, where, query, getDocs} from "firebase/firestore"
+import Datepicker from '@vuepic/vue-datepicker'
+import { debounce } from 'vue-debounce'
 
 export default {
   name: 'MainInfo',
@@ -72,16 +87,19 @@ export default {
   data() {
     return {
       desirableDate: new Date(),
+      expectedDuration: null,
       plannedTrip: {},
       spendDays: null,
       maxAllowedDays: null,
-      nextAllowedEnterDate: null,
       dayToExit: null,
       tripDurations: [],
       userLocale: null,
-      tripAllowed: false,
+      violation: false,
       dayLength: 24 * 3600 * 1000,
-      visaWindow: 180
+      visaWindow: 180,
+      durationRules: [
+        v => (v == null || v === '' || (new RegExp('^[1-9][0-9]*$').test(v) && v > 0 && v <= 90)) || 'Number is required and it should be no more than ' + this.allowedDays,
+      ],
     }
   },
   mounted() {
@@ -93,9 +111,9 @@ export default {
   computed: {
     minDate() {
       let now = new Date()
-      if (!this.planTrip.allowed && this.planTrip.tripStartDate)
+      if (this.plannedTrip.violation && this.plannedTrip.tripStartDate)
       {
-        now = this.planTrip.tripStartDate
+        now = this.plannedTrip.tripStartDate
       }
       now.setHours(0, 0, 0, 0)
       return now
@@ -112,15 +130,21 @@ export default {
     },
   }, 
   watch: {
-    async desirableDate(newPlannedDate, oldPlannedDate) {
+    desirableDate(newPlannedDate, oldPlannedDate) {
       if (this.uid && newPlannedDate && newPlannedDate !== oldPlannedDate) {
-        this.plannedTrip = await this.planTrip(newPlannedDate)
-      } else {
-        this.plannedTrip = {}
+        this.updatePlan()
       }
-    }
+    },
+    expectedDuration(newValue, oldValue) {
+      if (this.uid && this.desirableDate && newValue !== oldValue && (newValue == null || newValue == '' || (newValue > 0 && newValue <= this.allowedDays))) {
+        debounce(() => this.updatePlan(), '400ms')()
+      }
+    }    
   },
   methods: {
+    async updatePlan() {
+        this.plannedTrip = await this.planTrip(this.desirableDate, this.expectedDuration)
+    },
     formatDate(date) {
       return date ? date.toLocaleDateString(this.userLocale) : ''
     },
@@ -132,7 +156,7 @@ export default {
       }
       return print
     },
-    async calculatePlannedTrip(uid, startDate, allowedDays, expirationDate) {
+    async calculatePlannedTrip(uid, startDate, allowedDays, expirationDate, expectedDuration) {
       let tripInfo = {}
       if (this.db != null && this.collectionName != null && allowedDays && expirationDate) {
           const collectionRef = collection(this.db, this.collectionName, uid, "trips")
@@ -153,7 +177,6 @@ export default {
           tripInfo = await getDocs(tripsQuery)
                         .then((querySnap) => {
                           let spendDaysAtDate = 0
-                          let allowedDaysAtDate = allowedDays
                           let nextAllowedEnterDayOffset = 0
                           let tripEndDayOffset = allowedDays - 1
                           let tripDuration = allowedDays
@@ -175,7 +198,6 @@ export default {
                               spendDaysAtDate += pastTimeline[i]
                               daySpendTimeline[i] = spendDaysAtDate
                             }
-                            allowedDaysAtDate = allowedDays - spendDaysAtDate
                             tripAllowed = false
                             for (let i = 0; i < this.visaWindow; i++) {
                               if (daySpendTimeline[i] < allowedDays) {
@@ -192,7 +214,7 @@ export default {
                             if (tripAllowed) {
                               tripDuration = 1
                               for (let i = tripEndDayOffset; i < this.visaWindow; i++) {
-                                if (daySpendTimeline[i] + tripDuration > allowedDays) {
+                                if ((expectedDuration && (tripDuration > expectedDuration)) || (daySpendTimeline[i] + tripDuration > allowedDays)) {
                                   tripDuration--
                                   tripEndDayOffset--
                                   break
@@ -214,23 +236,29 @@ export default {
                           }
                           if (startDate > expirationDate) {
                             return {
-                                      allowed: false,
+                                      violation: true,
                                       spendDays: spendDaysAtDate,
-                                      allowedDays: 0,
                                       duration: 0
                                   }
                           } else {
                             if (nextTripLastDate > expirationDate) {
-                              allowedDaysAtDate = allowedDaysAtDate - (nextTripLastDate - expirationDate) /  this.dayLength
+                              const correction = (nextTripLastDate - expirationDate) /  this.dayLength
+                              tripDuration -= correction
+                              tripEndDayOffset -= correction
                               nextTripLastDate = expirationDate
                             }
+                            let usedDaysInRest = 0
+                            for (let i = tripEndDayOffset; i < this.visaWindow; i++) {
+                              usedDaysInRest += pastTimeline[i]
+                            }
                             return {
-                                      allowed: spendDaysAtDate <= allowedDays ? tripAllowed : false,
+                                      violation: spendDaysAtDate > allowedDays || !tripAllowed,
                                       spendDays: spendDaysAtDate,
-                                      allowedDays: allowedDaysAtDate,
                                       tripStartDate: nextTripEnterDate,
                                       tripEndDate: nextTripLastDate,
-                                      duration: tripDuration
+                                      duration: tripDuration,
+                                      allowedDaysAfter: allowedDays - (usedDaysInRest + tripDuration),
+                                      restDays: usedDaysInRest
                                   }
                           }
                         })
@@ -238,30 +266,24 @@ export default {
       }
       return tripInfo
     },
-    async planTrip(newPlannedDate) {
+    async planTrip(newPlannedDate, duration) {
       let startDate = new Date(newPlannedDate)
-      return this.calculatePlannedTrip(this.uid, new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0)), this.allowedDays, this.expirationDate)
+      return this.calculatePlannedTrip(this.uid, new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0)), this.allowedDays, this.expirationDate, duration)
     },
     async onChange(allowedDays, expirationDate) {
       let startDate = new Date()
-      let currentInfo = await this.calculatePlannedTrip(this.uid, new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0)), allowedDays, expirationDate)
+      let currentInfo = await this.calculatePlannedTrip(this.uid, new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0)), allowedDays, expirationDate, null)
       this.spendDays = currentInfo.spendDays
       this.maxAllowedDays = currentInfo.duration
-      this.tripAllowed = currentInfo.allowed
-      if (currentInfo.allowed) {
-        this.nextAllowedEnterDate = currentInfo.tripStartDate
-        this.dayToExit = currentInfo.tripEndDate
-      } else {
-        this.nextAllowedEnterDate = null
-        this.dayToExit = null
-      }
+      this.violation = currentInfo.violation
+      this.dayToExit = currentInfo.violation ? null : currentInfo.tripEndDate
       if (!this.desirableDate)
       {
         this.plannedTrip = currentInfo
       } else {
         const journeyDate = new Date(this.desirableDate)
-        if (startDate.getFullYear() !== journeyDate.getFullYear() || startDate.getMonth() !== journeyDate.getMonth() || startDate.getDate() !== journeyDate.getDate()) {
-          this.plannedTrip = await this.planTrip(this.desirableDate)
+        if (startDate.getFullYear() !== journeyDate.getFullYear() || startDate.getMonth() !== journeyDate.getMonth() || startDate.getDate() !== journeyDate.getDate() || this.expectedDuration) {
+          this.plannedTrip = await this.planTrip(this.desirableDate, this.expectedDuration)
         } else {
           this.plannedTrip = currentInfo
         }

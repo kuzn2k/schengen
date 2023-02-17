@@ -13,6 +13,7 @@
     "firebase": "^9.12.1",
     "firebase-tools": "^11.23.1",
     "vue": "^3.2.41",
+    "vue-debounce": "^4.0.0",
     "vuetify": "^v3.0.0-beta.13"
   },
   "devDependencies": {
