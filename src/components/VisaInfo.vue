@@ -35,17 +35,26 @@
           </v-row>
         </v-card-text>
       </v-form>
+      <v-divider></v-divider>
       <v-card-actions v-if="changed">
         <v-spacer></v-spacer>
         <v-btn
+            icon
             :disabled="!valid || !changed"
             @click="save"
         >
-          Save
+          <v-icon icon="mdi-content-save-outline"></v-icon>
+          <v-tooltip
+            activator="parent"
+            location="bottom"
+          >Save</v-tooltip> 
         </v-btn>
-        <v-btn @click="revert"
-        >
-          Cancel
+        <v-btn icon @click="revert">
+          <v-icon icon="mdi-cancel"></v-icon>
+          <v-tooltip
+            activator="parent"
+            location="bottom"
+          >Cancel</v-tooltip>         
         </v-btn>
       </v-card-actions>
     </v-card>

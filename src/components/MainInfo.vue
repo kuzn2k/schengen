@@ -167,9 +167,10 @@ export default {
           const endOfYesterday = new Date(startOfYesterday.getTime() + this.dayLength - 1)
           const startTimeWindow = endOfYesterday.getTime() - this.visaWindow * this.dayLength + 1
           const tripsQuery = query(collectionRef, where("exit", ">=", startTimeWindow), orderBy("exit"))
-          const pastTimeline = new Array(this.visaWindow)
-          const daySpendTimeline = new Array(this.visaWindow)
-          for (let i = 0; i < this.visaWindow; i++) {
+          const bufSize = this.visaWindow * 2
+          const pastTimeline = new Array(bufSize * 2)
+          const daySpendTimeline = new Array(bufSize * 2)
+          for (let i = 0; i < bufSize; i++) {
             pastTimeline[i] = 0
             daySpendTimeline[i] = 0
           }
@@ -177,12 +178,12 @@ export default {
           tripInfo = await getDocs(tripsQuery)
                         .then((querySnap) => {
                           let spendDaysAtDate = 0
-                          let nextAllowedEnterDayOffset = 0
+                          let allowedEnterDayOffset = 0
                           let tripEndDayOffset = allowedDays - 1
                           let tripDuration = allowedDays
-                          let tripAllowed = true
-                          let nextTripEnterDate = new Date(startOfToday.getTime())
-                          let nextTripLastDate = new Date(endOfToday.getTime() + tripEndDayOffset * this.dayLength)
+                          let tripEnterDate = new Date(startOfToday.getTime())
+                          let tripLastDate = new Date(endOfToday.getTime() + tripEndDayOffset * this.dayLength)
+                          let nextTripStartDate = new Date(startOfToday.getTime() + this.visaWindow * this.dayLength)
                           if (!querySnap.empty) {
                             querySnap.docs.forEach((trip) => {
                               const tripData = trip.data()
@@ -198,40 +199,30 @@ export default {
                               spendDaysAtDate += pastTimeline[i]
                               daySpendTimeline[i] = spendDaysAtDate
                             }
-                            tripAllowed = false
-                            for (let i = 0; i < this.visaWindow; i++) {
+                            for (let i = 0; i < bufSize; i++) {
                               if (daySpendTimeline[i] < allowedDays) {
-                                tripAllowed = true
                                 tripDuration = 0
-                                tripEndDayOffset = nextAllowedEnterDayOffset
-                                if (nextAllowedEnterDayOffset > 0) {
-                                  nextAllowedEnterDayOffset--
+                                tripEndDayOffset = allowedEnterDayOffset
+                                if (allowedEnterDayOffset > 0) {
+                                  allowedEnterDayOffset--
                                 }
                                 break
                               }
-                              nextAllowedEnterDayOffset++
+                              allowedEnterDayOffset++
                             }
-                            if (tripAllowed) {
-                              tripDuration = 1
-                              for (let i = tripEndDayOffset; i < this.visaWindow; i++) {
-                                if ((expectedDuration && (tripDuration > expectedDuration)) || (daySpendTimeline[i] + tripDuration > allowedDays)) {
-                                  tripDuration--
-                                  tripEndDayOffset--
-                                  break
-                                }
-                                tripDuration++
-                                tripEndDayOffset++
-                              }
-                              if (tripEndDayOffset === this.visaWindow) {
-                                // we reach right limit of visa window so previous trip has ended exactly at the last allowed day, making correction
+                            tripDuration = 1
+                            for (let i = tripEndDayOffset; i < bufSize; i++) {
+                              if ((expectedDuration && (tripDuration > expectedDuration)) || (daySpendTimeline[i] + tripDuration > allowedDays)) {
+                                tripDuration--
                                 tripEndDayOffset--
+                                break
                               }
-                              nextTripEnterDate = new Date(startOfToday.getTime() + nextAllowedEnterDayOffset * this.dayLength)
-                              nextTripLastDate = new Date(endOfToday.getTime() + tripEndDayOffset * this.dayLength)
-                            } else {
-                              nextTripEnterDate = startOfToday
-                              nextTripLastDate = startOfToday
-                              console.log("Trip is not possible.  Violation visa rules within visa window")
+                              tripDuration++
+                              tripEndDayOffset++
+                            }
+                            if (tripEndDayOffset === bufSize) {
+                              // we reached right limit of visa window so previous trip has ended exactly at the last allowed day, making correction
+                              tripEndDayOffset--
                             }
                           }
                           if (startDate > expirationDate) {
@@ -241,24 +232,34 @@ export default {
                                       duration: 0
                                   }
                           } else {
-                            if (nextTripLastDate > expirationDate) {
-                              const correction = (nextTripLastDate - expirationDate) /  this.dayLength
-                              tripDuration -= correction
-                              tripEndDayOffset -= correction
-                              nextTripLastDate = expirationDate
-                            }
+                            if (tripDuration <= expectedDuration) {
+                                tripEnterDate = new Date(startOfToday.getTime() + allowedEnterDayOffset * this.dayLength)
+                                tripLastDate = new Date(endOfToday.getTime() + tripEndDayOffset * this.dayLength)
+                                if (tripLastDate > expirationDate) {
+                                  const correction = (tripLastDate - expirationDate) /  this.dayLength
+                                  tripDuration -= correction
+                                  tripEndDayOffset -= correction
+                                  tripLastDate = expirationDate
+                                }
+                              } else {
+                                // TODO find new posible start/end date outside visa window
+                              }
+
                             let usedDaysInRest = 0
-                            for (let i = tripEndDayOffset; i < this.visaWindow; i++) {
+                            for (let i = tripEndDayOffset; i < bufSize; i++) {
                               usedDaysInRest += pastTimeline[i]
                             }
+                            let allowedDaysAfter = allowedDays - (usedDaysInRest + tripDuration)
+                            nextTripStartDate = allowedDaysAfter > 0 ? new Date(tripEnterDate.getTime() + tripDuration * this.dayLength) : null
                             return {
-                                      violation: spendDaysAtDate > allowedDays || !tripAllowed,
+                                      violation: false,
                                       spendDays: spendDaysAtDate,
-                                      tripStartDate: nextTripEnterDate,
-                                      tripEndDate: nextTripLastDate,
+                                      tripStartDate: tripEnterDate,
+                                      tripEndDate: tripLastDate,
                                       duration: tripDuration,
-                                      allowedDaysAfter: allowedDays - (usedDaysInRest + tripDuration),
-                                      restDays: usedDaysInRest
+                                      allowedDaysAfter: allowedDaysAfter,
+                                      restDays: usedDaysInRest,
+                                      nextTripStartDate: nextTripStartDate
                                   }
                           }
                         })

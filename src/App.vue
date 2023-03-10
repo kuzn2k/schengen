@@ -9,31 +9,38 @@
         <AuthBar v-model:user-uid="userUid" v-model:user-name="userName" v-model:is-anonymous="isAnonymous" v-model:is-logged-in="isLoggedIn" v-model:email="email"/>
       </template>
     </v-app-bar>
+    <v-parallax
+    src="https://cdn.vuetifyjs.com/images/backgrounds/vbanner.jpg"
+  >
     <v-main>
-      <v-container fluid v-if="isLoggedIn && userUid">
-        <v-row dense>
+      <v-container v-if="isLoggedIn && userUid">
+        <v-row>
+          <v-col><MainInfo ref="mainInfo" :uid="userUid" :db="db" :collection-name="collectionName"
+                        :expiration-date="expirationDate" :allowed-days="allowedDays" :abroad="abroad"/></v-col>
+        </v-row>
+        <v-row>
           <v-col>
-            <v-row>
-              <v-col>
-                <VisaInfo ref="visaInfo" :uid="userUid" :db="db" :collection-name="collectionName"
-                               v-model:expiration-date="expirationDate"
-                               v-model:allowed-days="allowedDays" @update:refresh="refresh"/>
-              </v-col>
-            </v-row>
-            <v-row>
-              <v-col><MainInfo ref="mainInfo" :uid="userUid" :db="db" :collection-name="collectionName"
-                           :expiration-date="expirationDate" :allowed-days="allowedDays" :abroad="abroad"/></v-col>
-            </v-row>
-            <v-row v-if="expirationDate && allowedDays">
-              <v-col><TripsList :uid="userUid" :db="db" :collection-name="collectionName" v-model:abroad="abroad" @update:refresh="refresh"/></v-col>
-            </v-row>
+            <VisaInfo ref="visaInfo" :uid="userUid" :db="db" :collection-name="collectionName"
+                            v-model:expiration-date="expirationDate"
+                            v-model:allowed-days="allowedDays" @update:refresh="refresh"/>
           </v-col>
+        </v-row>
+        <v-row v-if="expirationDate && allowedDays">
+          <v-col><TripsList :uid="userUid" :db="db" :collection-name="collectionName" v-model:abroad="abroad" @update:refresh="refresh"/></v-col>
         </v-row>
       </v-container>
       <v-container v-else>
-        <p class="text-center">You need to login to view visa information and calculate days</p>
+        <div class="d-flex flex-column fill-height justify-center align-center text-white">
+          <h1 class="text-h4 font-weight-thin mb-4">
+            Visa days calculator
+          </h1>
+          <h4 class="subheading">
+            You need to login to view visa information and calculate days
+          </h4>
+        </div>
       </v-container>
     </v-main>
+    </v-parallax>
   </v-app>
 </template>
 

@@ -5,71 +5,86 @@
         Your travel history
       </v-card-title>
       <v-card-subtitle>Add/Delete trips</v-card-subtitle>
-      <v-card-text>
-        <v-container fluid>
-          <v-row>
-            <v-col cols="12">
-              <v-card border density="comfortable" v-for="item in trips" :key="item.idx">
-                <v-card-text>
-                  <v-container fluid>
-                    <v-row>
-                      <v-col>Start date:</v-col>
-                      <v-col>
-                        <Datepicker v-model="item.localStart"
-                                    required
-                                    autoApply
-                                    :disabled="!item.edit"
-                                    :enableTimePicker="false"
-                                    :locale="userLocale"
-                                    :format="formatDate"
-                                    :previewFormat="formatDate"
-                                    modelType="timestamp"
-                                    @update:modelValue="item.changed = true"/>
-                      </v-col>
-                    </v-row>
-                    <v-row>
-                      <v-col>End date:</v-col>
-                      <v-col>
-                        <Datepicker v-model="item.localEnd"
-                                    autoApply
-                                    :disabled="!item.edit"
-                                    :enableTimePicker="false"
-                                    :locale="userLocale"
-                                    :format="formatDate"
-                                    :previewFormat="formatDate"
-                                    modelType="timestamp"
-                                    @update:modelValue="item.changed = true; item.abroad = !item.localEnd"
-                        />
-                      </v-col>
-                    </v-row>
-                  </v-container>
-                </v-card-text>
-                <v-card-actions>
-                  <v-spacer></v-spacer>
-                  <v-btn v-if="!item.edit" @click="editTrip(item)">
-                    Edit
-                  </v-btn>
-                  <v-btn v-if="item.changed" @click="saveTrip(item)">
-                    Save
-                  </v-btn>
-                  <v-btn v-if="item.edit" @click="revertTrip(item)">
-                    Cancel
-                  </v-btn>
-                  <v-btn v-if="!item.new" @click="deleteTrip(item)">
-                    Delete
-                  </v-btn>
-                </v-card-actions>
-              </v-card>
-            </v-col>
-          </v-row>
-        </v-container>
-      </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn @click="addTrip">
-          Add
+        <v-btn icon @click="addTrip">
+          <v-icon icon="mdi-plus-circle-outline"></v-icon>
+          <v-tooltip
+            activator="parent"
+            location="bottom"
+          >Add</v-tooltip>  
         </v-btn>
       </v-card-actions>
+      <v-card-text>
+            <v-card border density="comfortable" v-for="item in trips" :key="item.idx">
+              <v-card-text>
+                <v-container fluid>
+                  <v-row>
+                    <v-col>Start date:</v-col>
+                    <v-col>
+                      <Datepicker v-model="item.localStart"
+                                  required
+                                  autoApply
+                                  :disabled="!item.edit"
+                                  :enableTimePicker="false"
+                                  :locale="userLocale"
+                                  :format="formatDate"
+                                  :previewFormat="formatDate"
+                                  modelType="timestamp"
+                                  @update:modelValue="item.changed = true"/>
+                    </v-col>
+                  </v-row>
+                  <v-row>
+                    <v-col>End date:</v-col>
+                    <v-col>
+                      <Datepicker v-model="item.localEnd"
+                                  autoApply
+                                  :disabled="!item.edit"
+                                  :enableTimePicker="false"
+                                  :locale="userLocale"
+                                  :format="formatDate"
+                                  :previewFormat="formatDate"
+                                  modelType="timestamp"
+                                  @update:modelValue="item.changed = true; item.abroad = !item.localEnd"
+                      />
+                    </v-col>
+                  </v-row>
+                </v-container>
+              </v-card-text>
+              <v-divider></v-divider>
+              <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn icon v-if="!item.edit" @click="editTrip(item)">
+                  <v-icon icon="mdi-text-box-edit-outline"></v-icon>
+                  <v-tooltip
+                    activator="parent"
+                    location="bottom"
+                  >Change</v-tooltip>
+                </v-btn>
+                <v-btn icon v-if="item.changed" @click="saveTrip(item)">
+                  <v-icon icon="mdi-content-save-outline"></v-icon>
+                  <v-tooltip
+                    activator="parent"
+                    location="bottom"
+                  >Save</v-tooltip>                    
+                </v-btn>
+                <v-btn icon v-if="item.edit" @click="revertTrip(item)">
+                  <v-icon icon="mdi-cancel"></v-icon>
+                  <v-tooltip
+                    activator="parent"
+                    location="bottom"
+                  >Cancel</v-tooltip>                    
+                </v-btn>
+                <v-btn icon v-if="!item.new" @click="deleteTrip(item)">
+                  <v-icon icon="mdi-trash-can-outline"></v-icon>
+                  <v-tooltip
+                    activator="parent"
+                    location="bottom"
+                  >Delete</v-tooltip>                    
+                </v-btn>                    
+              </v-card-actions>
+            </v-card>
+      </v-card-text>
     </v-card>
   </v-container>
 </template>
@@ -109,7 +124,7 @@ export default {
     loadData(uid) {
       if (uid != null && this.db != null && this.collectionName != null) {
         const collectionRef = collection(this.db, this.collectionName, uid, "trips")
-        const tripsQuery = query(collectionRef, orderBy("exit"))
+        const tripsQuery = query(collectionRef, orderBy("exit", "desc"))
         getDocs(tripsQuery).then((querySnap) => {
           if (!querySnap.empty) {
             this.trips = []
@@ -207,8 +222,8 @@ export default {
       }
     },
     addTrip() {
-      const newIdx = this.trips.length
-      this.trips.push({
+      const newIdx = 0
+      this.trips.splice(0, 0, {
         idx: newIdx,
         start: null,
         end: null,
@@ -217,6 +232,7 @@ export default {
         abroad: true,
         new: true
       })
+      this.restoreIndex(0)
     },
     deleteTrip(item) {
       if (item.doc) {
@@ -235,11 +251,14 @@ export default {
     deleteItem(item) {
       const startIndex = item.idx
       this.trips.splice(startIndex, 1)
+      this.restoreIndex(startIndex)
+    },
+    restoreIndex(startIndex) {
       if (startIndex < this.trips.length) {
         for (let i = startIndex; i < this.trips.length; i++) {
           this.trips[i].idx = i
         }
-      }
+      }      
     }
   }
 }
