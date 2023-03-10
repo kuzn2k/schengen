@@ -5,36 +5,38 @@
         Schengen Visa information
       </v-card-title>
       <v-card-subtitle v-if="!(allowedDays && expirationDate)">Please set expiration date and allowed days</v-card-subtitle>
-      <v-form ref="form" v-model="valid">
-        <v-card-text>
-          <v-row>
-            <v-col>Expiration date:</v-col>
-            <v-col>
-              <Datepicker v-model="localExpirationDate"
-                          autoApply
-                          required
-                          :enableTimePicker="false"
-                          :locale="userLocale"
-                          :format="formatDate"
-                          :previewFormat="formatDate"
-                          modelType="timestamp"
-                          @update:modelValue="changed = true"/>
-            </v-col>
-          </v-row>
-          <v-row>
-            <v-col>Allowed days:</v-col>
-            <v-col>
-              <v-text-field
-                  v-model="allowedDays"
-                  :rules="daysRules"
-                  required
-                  hint="Allowed staying days in Schengen within 180 days"
-                  @update:modelValue="changed = true"
-              ></v-text-field>
-            </v-col>
-          </v-row>
-        </v-card-text>
-      </v-form>
+      <v-container>
+        <v-form ref="form" v-model="valid">
+          <v-card-text>
+            <v-row>
+              <v-col>Expiration date:</v-col>
+              <v-col>
+                <Datepicker v-model="localExpirationDate"
+                            autoApply
+                            required
+                            :enableTimePicker="false"
+                            :locale="userLocale"
+                            :format="formatDate"
+                            :previewFormat="formatDate"
+                            modelType="timestamp"
+                            @update:modelValue="changed = true"/>
+              </v-col>
+            </v-row>
+            <v-row>
+              <v-col>Allowed days:</v-col>
+              <v-col>
+                <v-text-field
+                    v-model="allowedDays"
+                    :rules="daysRules"
+                    required
+                    hint="Allowed staying days in Schengen within 180 days"
+                    @update:modelValue="changed = true"
+                ></v-text-field>
+              </v-col>
+            </v-row>
+          </v-card-text>
+        </v-form>
+      </v-container>
       <v-divider></v-divider>
       <v-card-actions v-if="changed">
         <v-spacer></v-spacer>
