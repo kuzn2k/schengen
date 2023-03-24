@@ -12,21 +12,21 @@
     <v-tooltip
       activator="parent"
       location="bottom"
-    >By Google</v-tooltip>  
+    >Sign in with Google</v-tooltip>  
   </v-btn>
   <v-btn icon @click="loginByGithub" v-if="!loggedIn">
     <v-icon icon="mdi-github"></v-icon>
     <v-tooltip
       activator="parent"
       location="bottom"
-    >By GitHub</v-tooltip>
+    >Sign in with GitHub</v-tooltip>
   </v-btn>
   <v-btn icon @click="logout" v-if="loggedIn">
     <v-icon icon="mdi-logout"></v-icon>
     <v-tooltip
       activator="parent"
       location="bottom"
-    >Logout</v-tooltip>  
+    >Sign out</v-tooltip>  
   </v-btn>
   <v-snackbar v-model="showMessage" :timeout="7000">{{ message }}</v-snackbar>
 </template>

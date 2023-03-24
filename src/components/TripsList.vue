@@ -189,8 +189,10 @@ export default {
       if (item.localEnd) {
         const localEnd = new Date(item.localEnd)
         endDay = new Date(Date.UTC(localEnd.getFullYear(), localEnd.getMonth(), localEnd.getDate(), 23, 59, 59, 999))
+        item.abroad = false
       } else {
         item.localEnd = null
+        item.abroad = true
       }
       const newData = {
         entry: startDay.getTime(),

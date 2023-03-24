@@ -10,7 +10,7 @@
       </template>
     </v-app-bar>
     <v-parallax
-    src="/pexels-porapak-apichodilok-346798.jpg"
+    src="/backgroud.jpg"
     >
       <v-main>
         <v-container v-if="isLoggedIn && userUid">
@@ -31,9 +31,12 @@
         </v-container>
         <v-container v-else>
           <div class="d-flex flex-column fill-height justify-center align-center text-white">
-            <h1 class="text-h1 font-weight-thin mb-4">
+            <h1 class="text-h2 font-weight-thin mb-4">
               Visa days calculator
             </h1>
+            <h2 class="text-h4 font-weight-thin mb-4">
+              Track you travel days in Schengen countries to prevent visa violation
+            </h2>
             <h4 class="subheading">
               You need sing in to view visa information and calculate days
             </h4>

@@ -64,9 +64,9 @@
           <v-row>
             <v-col>You must leave on:</v-col><v-col>{{ showUTCDate(plannedTrip.tripEndDate) }}</v-col>
           </v-row>
-          <v-row>
+          <!-- <v-row>
             <v-col>Minimum of days after trip in the rest:</v-col><v-col>{{ plannedTrip.allowedDaysAfter }}</v-col>
-          </v-row>
+          </v-row> -->
         </v-container>
       </v-card-text>
     </v-card>
