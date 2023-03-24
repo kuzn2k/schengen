@@ -35,7 +35,7 @@
               Visa days calculator
             </h1>
             <h2 class="text-h4 font-weight-thin mb-4">
-              Track you travel days in Schengen countries to prevent visa violation
+              Track your travel days in Schengen countries to prevent visa violation
             </h2>
             <h4 class="subheading">
               You need sing in to view visa information and calculate days
