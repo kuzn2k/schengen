@@ -2,7 +2,7 @@
   <v-container fluid>
     <v-card border density="comfortable">
       <v-card-title>
-        Schengen Visa information
+        {{ issuer }} Visa information
       </v-card-title>
       <v-card-subtitle v-if="!(allowedDays && expirationDate)">Please set expiration date and allowed days</v-card-subtitle>
       <v-container>
@@ -71,7 +71,7 @@ import '@vuepic/vue-datepicker/dist/main.css'
 export default {
   name: 'VisaInfo',
   components: { Datepicker },
-  props: ['uid', 'db', 'collectionName'],
+  props: ['uid', 'db', 'collectionName', 'issuer'],
   emits: ['update:expirationDate', 'update:allowedDays', 'update:refresh'],
   data() {
     return {
@@ -82,7 +82,7 @@ export default {
       allowedDays: null,
       daysRules: [
         v => !!v || 'Number is required',
-        v => (v && v.length >= 1 && v.length <= 2 && new RegExp('^[1-9][0-9]*$').test(v) && v <= 90) || 'Number is required and it should be no more than 90',
+        v => (v && v >= 1 && v <= 90 && new RegExp('^[1-9][0-9]*$').test('' + v)) || 'Number is required and it should be positive and no more than 90',
       ],
       userLocale: null
     }
@@ -115,10 +115,12 @@ export default {
         getDoc(docRef).then((docSnap) => {
           if (docSnap.exists()) {
             const visaInfo = docSnap.data()
-            this.allowedDays = visaInfo.allowedDays
+            const issuerModifier = this.issuer.toLowerCase() + "_"
+            this.allowedDays = visaInfo[issuerModifier + "allowedDays"]
             this.localExpirationDate = null
-            if (visaInfo.expirationDate) {
-              this.expirationDate = new Date(visaInfo.expirationDate)
+            const visaExpirationDate = visaInfo[issuerModifier + "expirationDate"]
+            if (visaExpirationDate) {
+              this.expirationDate = new Date(visaExpirationDate)
               this.localExpirationDate = new Date(this.expirationDate.getUTCFullYear(), this.expirationDate.getUTCMonth(), this.expirationDate.getUTCDate(), 23, 59, 59, 999)
             }
             console.log("Loaded document for " + this.uid + " (db=" + this.db + ")")
@@ -145,10 +147,11 @@ export default {
       if (this.db != null && this.collectionName && this.uid != null ) {
         const ref = doc(this.db, this.collectionName, this.uid)
         let expirationDateMillis = this.expirationDate ? this.expirationDate.getTime() : null
-        setDoc(ref, {
-          allowedDays: this.allowedDays,
-          expirationDate: expirationDateMillis
-        }, { merge: true }).then(() => {
+        const issuerModifier = this.issuer.toLowerCase() + "_"
+        const data = {}
+        data[issuerModifier + "allowedDays"] = this.allowedDays * 1
+        data[issuerModifier + "expirationDate"] = expirationDateMillis
+        setDoc(ref, data, { merge: true }).then(() => {
           this.$emit('update:expirationDate', this.expirationDate)
           this.$emit('update:allowedDays', this.allowedDays)
           console.log("Saved visa information for uid=" + this.uid)

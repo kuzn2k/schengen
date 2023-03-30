@@ -91,13 +91,13 @@
 
 <script>
 
-import {collection, query, orderBy, getDocs, updateDoc, addDoc, deleteDoc} from "firebase/firestore";
+import {collection, query, where, orderBy, getDocs, updateDoc, addDoc, deleteDoc} from "firebase/firestore";
 import Datepicker from "@vuepic/vue-datepicker";
 
 export default {
   name: 'TripInfo',
   components: { Datepicker },
-  props: ['uid', 'db', 'collectionName'],
+  props: ['uid', 'db', 'collectionName', 'zone'],
   emits: ['update:abroad', 'update:refresh'],
   data() {
     return {
@@ -124,7 +124,7 @@ export default {
     loadData(uid) {
       if (uid != null && this.db != null && this.collectionName != null) {
         const collectionRef = collection(this.db, this.collectionName, uid, "trips")
-        const tripsQuery = query(collectionRef, orderBy("exit", "desc"))
+        const tripsQuery = query(collectionRef, where("zone", "==", this.zone.toLowerCase()), orderBy("exit", "desc"))
         getDocs(tripsQuery).then((querySnap) => {
           if (!querySnap.empty) {
             this.trips = []
@@ -195,6 +195,7 @@ export default {
         item.abroad = true
       }
       const newData = {
+        zone: this.zone.toLowerCase(),
         entry: startDay.getTime(),
         exit: item.abroad ? Number.MAX_VALUE : (endDay ? endDay.getTime() : null)
       }

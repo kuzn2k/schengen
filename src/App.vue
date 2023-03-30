@@ -20,13 +20,13 @@
           </v-row>
           <v-row>
             <v-col>
-              <VisaInfo ref="visaInfo" :uid="userUid" :db="db" :collection-name="collectionName"
+              <VisaInfo ref="visaInfo" :uid="userUid" :db="db" :collection-name="collectionName" :issuer="issuer"
                               v-model:expiration-date="expirationDate"
                               v-model:allowed-days="allowedDays" @update:refresh="refresh"/>
             </v-col>
           </v-row>
           <v-row v-if="expirationDate && allowedDays">
-            <v-col><TripsList :uid="userUid" :db="db" :collection-name="collectionName" v-model:abroad="abroad" @update:refresh="refresh"/></v-col>
+            <v-col><TripsList :uid="userUid" :db="db" :collection-name="collectionName" :zone="zone" v-model:abroad="abroad" @update:refresh="refresh"/></v-col>
           </v-row>
         </v-container>
         <v-container v-else>
@@ -73,7 +73,9 @@ export default {
       isAnonymous: true,
       isLoggedIn: false,
       db: null,
-      collectionName: null
+      collectionName: null,
+      zone: 'Schengen',
+      issuer: 'Schengen'
     }
   },
   computed: {
