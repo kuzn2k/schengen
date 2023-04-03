@@ -61,7 +61,7 @@ export default {
     MainInfo,
     TripsList
   },
-  inject: ['database', 'collection'],
+  inject: ['database', 'collection', 'analytics'],
   data() {
     return {
       userUid: null,

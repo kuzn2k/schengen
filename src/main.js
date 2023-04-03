@@ -7,9 +7,8 @@ import App from './App.vue'
 import { md3 } from 'vuetify/blueprints'
 
 import { initializeApp } from "firebase/app"
-// import { getAnalytics } from "firebase/analytics"
+import { getAnalytics } from "firebase/analytics"
 import { getFirestore } from "firebase/firestore"
-
 
 const firebaseConfig = {
     apiKey: "AIzaSyARlr8VEVUS1tO0X51hH_GYFcXtO--mgGA",
@@ -23,11 +22,12 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const firebaseApp = initializeApp(firebaseConfig)
-// const analytics = getAnalytics(firebaseApp);
+const analytics = getAnalytics(firebaseApp);
 const database = getFirestore(firebaseApp)
 
 const app = createApp(App)
 app.provide('database', database)
+app.provide('analytics', analytics)
 app.provide('collection', 'journeys')
 const vuetify = createVuetify({
     components,
