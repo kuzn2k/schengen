@@ -91,8 +91,9 @@
 
 <script>
 
-import {collection, query, where, orderBy, getDocs, updateDoc, addDoc, deleteDoc} from "firebase/firestore";
-import Datepicker from "@vuepic/vue-datepicker";
+import {collection, query, where, orderBy, getDocs, updateDoc, addDoc, deleteDoc} from "firebase/firestore"
+import Datepicker from "@vuepic/vue-datepicker"
+import { getAnalytics, logEvent } from "firebase/analytics"
 
 export default {
   name: 'TripInfo',
@@ -208,6 +209,7 @@ export default {
               this.abroad = item.abroad
               this.$emit('update:abroad', this.abroad)
               this.$emit('update:refresh')
+              logEvent(getAnalytics(), 'update_trip')
             }
         )
       } else {
@@ -221,6 +223,7 @@ export default {
           this.abroad = item.abroad
           this.$emit('update:abroad', this.abroad)
           this.$emit('update:refresh')
+          logEvent(getAnalytics(), 'add_trip')
         })
       }
     },
@@ -246,6 +249,7 @@ export default {
           this.abroad = count > 0 ? this.trips[count - 1].abroad : false
           this.$emit('update:abroad', this.abroad)
           this.$emit('update:refresh')
+          logEvent(getAnalytics(), 'delete_trip')
         })
       } else {
         this.deleteItem(item)

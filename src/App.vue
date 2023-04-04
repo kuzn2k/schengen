@@ -52,6 +52,8 @@ import AuthBar from './components/AuthBar.vue'
 import VisaInfo from './components/VisaInfo.vue'
 import MainInfo from './components/MainInfo.vue'
 import TripsList from './components/TripsList.vue'
+import { version } from '../package.json'
+import { getAnalytics, logEvent } from "firebase/analytics"
 
 export default {
   name: 'App',
@@ -61,7 +63,7 @@ export default {
     MainInfo,
     TripsList
   },
-  inject: ['database', 'collection', 'analytics'],
+  inject: ['database', 'collection'],
   data() {
     return {
       userUid: null,
@@ -87,13 +89,35 @@ export default {
     console.log("Database " + this.database + ", collection: " + this.collection)
     this.db = this.database
     this.collectionName = this.collection
+    const analytics = getAnalytics()
+    logEvent(analytics, "page_view");
+    logEvent(analytics, "screen_view", {
+        app_name: "web",
+        screen_name: 'Welcome page',
+        app_version: version
+      })
   },
   watch: {
     isLoggedIn(newState) {
+      const analytics = getAnalytics()
       if (!newState) {
         this.expirationDate = null
         this.allowedDays = null
+        logEvent(analytics, "page_view");
+        logEvent(analytics, "screen_view", {
+          app_name: "web",
+          screen_name: 'Welcome page',
+          app_version: version
+        })
+      } else {
+        logEvent(analytics, "page_view");
+        logEvent(analytics, "screen_view", {
+          app_name: "web",
+          screen_name: 'Main schengen page',
+          app_version: version
+        })
       }
+
     }
   },
   methods: {

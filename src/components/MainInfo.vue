@@ -78,6 +78,7 @@
 import {collection, orderBy, where, query, getDocs} from "firebase/firestore"
 import Datepicker from '@vuepic/vue-datepicker'
 import { debounce } from 'vue-debounce'
+import { getAnalytics, logEvent } from 'firebase/analytics'
 
 export default {
   name: 'MainInfo',
@@ -144,6 +145,7 @@ export default {
   methods: {
     async updatePlan() {
         this.plannedTrip = await this.planTrip(this.desirableDate, this.expectedDuration)
+        logEvent(getAnalytics(), 'update_journey')
     },
     formatDate(date) {
       return date ? date.toLocaleDateString(this.userLocale) : ''

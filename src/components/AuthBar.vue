@@ -33,7 +33,7 @@
 
 <script>
 import { GoogleAuthProvider, GithubAuthProvider, signInWithPopup, linkWithPopup, signOut, getAuth, onAuthStateChanged, signInAnonymously, signInWithEmailAndPassword } from "firebase/auth"
-
+import { getAnalytics, setUserId, logEvent } from "firebase/analytics"
 
 export default {
   name: 'AuthBar',
@@ -53,8 +53,10 @@ export default {
     loginAnonymous() {
       const auth = getAuth()
       signInAnonymously(auth)
-          .then(() => {
-            console.log('Login as anonymous')
+          .then((result) => {
+            const user = result.user
+            console.log('Login as anonymous ' + user.uid)
+            logEvent(getAnalytics(), 'logged_in_anonymous')
           })
           .catch((error) => {
             this.message = 'Cannot login as anonymous: [' + error.code + '] ' + error.message
@@ -91,7 +93,8 @@ export default {
           .then((result) => {
               const user = result.user
               console.log('Login as ' + user.email)
-              return result
+              logEvent(getAnalytics(), 'logged_in_google')
+              return user.uid
             }).catch((error) => {
               const errorCode = error.code
               const email = error.customData.email
@@ -122,6 +125,8 @@ export default {
             .then((result) => {
                 const user = result.user
                 console.log('Login as ' + user.email)
+                logEvent(getAnalytics(), 'logged_in_github')
+                return user.uid
               }).catch((error) => {
                 const errorCode = error.code
                 const email = error.customData.email
@@ -138,6 +143,7 @@ export default {
         console.log('Singed out of ' + oldUid)
         this.message = 'Signed out'
         this.showMessage = true
+        logEvent(getAnalytics(), 'logged_out')
       }).catch((error) => {
         const errorCode = error.code
         this.message = 'Cannot sign out ' + oldUid + ': [' + errorCode + '] ' + error.message
@@ -149,6 +155,7 @@ export default {
   mounted() {
     const auth = getAuth()
     onAuthStateChanged(auth, (user) => {
+      let userUid = ''
       if (user) {
         console.log('Authenticated: userName=' + user.displayName + ',userUid=' + user.uid + ',anonymous=' + user.isAnonymous)
         this.$emit('update:userUid', user.uid)
@@ -158,6 +165,7 @@ export default {
         this.$emit('update:isAnonymous', user.isAnonymous)
         this.anonymous = user.isAnonymous
         this.loggedIn = true
+        userUid = user.uid 
       } else {
         console.log('Logged out')
         this.$emit('update:userUid', null)
@@ -166,6 +174,7 @@ export default {
         this.$emit('update:isLoggedIn', false)
         this.loggedIn = false
       }
+      setUserId(getAnalytics(), userUid)
     })
   }
 }

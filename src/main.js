@@ -22,12 +22,11 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const firebaseApp = initializeApp(firebaseConfig)
-const analytics = getAnalytics(firebaseApp);
+getAnalytics(firebaseApp);
 const database = getFirestore(firebaseApp)
 
 const app = createApp(App)
 app.provide('database', database)
-app.provide('analytics', analytics)
 app.provide('collection', 'journeys')
 const vuetify = createVuetify({
     components,

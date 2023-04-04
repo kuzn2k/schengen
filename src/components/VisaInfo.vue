@@ -67,6 +67,7 @@
 import { doc, getDoc, setDoc } from "firebase/firestore"
 import Datepicker from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
+import { getAnalytics, logEvent } from 'firebase/analytics'
 
 export default {
   name: 'VisaInfo',
@@ -157,6 +158,7 @@ export default {
           console.log("Saved visa information for uid=" + this.uid)
           this.$emit('update:refresh')
           this.changed = false
+          logEvent(getAnalytics(), 'set_schengen_visa_info')
         })
       }
     },
