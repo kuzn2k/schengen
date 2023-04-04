@@ -5,6 +5,7 @@ import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import App from './App.vue'
 import { md3 } from 'vuetify/blueprints'
+import { createHead, useHead } from 'unhead'
 
 import { initializeApp } from "firebase/app"
 import { getAnalytics } from "firebase/analytics"
@@ -26,8 +27,20 @@ getAnalytics(firebaseApp);
 const database = getFirestore(firebaseApp)
 
 const app = createApp(App)
+const head = createHead()
+app.use(head)
+
+useHead({
+    title: 'Schengen visa days calculator',
+    meta: [
+      { name: 'description', content: 'Track your schengen days to prevent visa violation' },
+      { property: 'og:title', content: 'Schengen visa days calculator' },
+    ],
+  })
+
 app.provide('database', database)
 app.provide('collection', 'journeys')
+
 const vuetify = createVuetify({
     components,
     directives,

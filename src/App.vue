@@ -52,8 +52,8 @@ import AuthBar from './components/AuthBar.vue'
 import VisaInfo from './components/VisaInfo.vue'
 import MainInfo from './components/MainInfo.vue'
 import TripsList from './components/TripsList.vue'
-import { version } from '../package.json'
-import { getAnalytics, logEvent } from "firebase/analytics"
+import version from '../package.json'
+import { getAnalytics, logEvent } from 'firebase/analytics'
 
 export default {
   name: 'App',
