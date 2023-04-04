@@ -38,7 +38,7 @@
               Track your travel days in Schengen countries to prevent visa violation
             </h2>
             <h4 class="subheading">
-              You need sing in to view visa information and calculate days
+              You need sign in to view visa information and calculate days
             </h4>
           </div>
         </v-container>
@@ -82,7 +82,7 @@ export default {
   },
   computed: {
     loggedUserTitle() {
-      return this.isLoggedIn ? this.isAnonymous ? 'Demo' : (this.userName != null ? this.userName : '') + (this.email != null ? ' (' + this.email + ')' : '') : 'Please sing in or click Demo =>'
+      return this.isLoggedIn ? this.isAnonymous ? 'Demo' : (this.userName != null ? this.userName : '') + (this.email != null ? ' (' + this.email + ')' : '') : 'Please sign in or click Demo =>'
     }
   },
   mounted() {
