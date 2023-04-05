@@ -56,9 +56,11 @@ export default {
           .then((result) => {
             const user = result.user
             console.log('Login as anonymous ' + user.uid)
-            logEvent(getAnalytics(), "login", {
+            const analytics = getAnalytics()
+            logEvent(analytics, "login", {
               method: "Anonymous"
             })
+            logEvent(analytics, "login_anonymous")
           })
           .catch((error) => {
             this.message = 'Cannot login as anonymous: [' + error.code + '] ' + error.message
@@ -95,9 +97,11 @@ export default {
           .then((result) => {
               const user = result.user
               console.log('Login as ' + user.email)
-              logEvent(getAnalytics(), "login", {
+              const analytics = getAnalytics()
+              logEvent(analytics, "login", {
                 method: "Google"
               })
+              logEvent(analytics, "login_google")
               return user.uid
             }).catch((error) => {
               const errorCode = error.code
@@ -129,9 +133,11 @@ export default {
             .then((result) => {
                 const user = result.user
                 console.log('Login as ' + user.email)
-                logEvent(getAnalytics(), "login", {
+                const analytics = getAnalytics()
+                logEvent(analytics, "login", {
                   method: "GitHub"
                 })
+                logEvent(analytics, "login_github")
                 return user.uid
               }).catch((error) => {
                 const errorCode = error.code
