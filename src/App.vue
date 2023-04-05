@@ -54,6 +54,7 @@ import MainInfo from './components/MainInfo.vue'
 import TripsList from './components/TripsList.vue'
 import { version } from '../package.json'
 import { getAnalytics, logEvent } from 'firebase/analytics'
+import { useHead } from 'unhead'
 
 export default {
   name: 'App',
@@ -90,7 +91,7 @@ export default {
     this.db = this.database
     this.collectionName = this.collection
     const analytics = getAnalytics()
-    logEvent(analytics, "page_view");
+    logEvent(analytics, "page_view")
     logEvent(analytics, "screen_view", {
         app_name: "web",
         screen_name: 'Welcome page',
@@ -103,17 +104,23 @@ export default {
       if (!newState) {
         this.expirationDate = null
         this.allowedDays = null
-        logEvent(analytics, "page_view");
+        useHead({
+          title: 'Schengen visa days calculator | Welcome',
+        })
+        logEvent(analytics, "page_view")
         logEvent(analytics, "screen_view", {
           app_name: "web",
           screen_name: 'Welcome page',
           app_version: version
         })
       } else {
-        logEvent(analytics, "page_view");
+        useHead({
+          title: this.zone,
+        })
+        logEvent(analytics, "page_view")
         logEvent(analytics, "screen_view", {
           app_name: "web",
-          screen_name: 'Main schengen page',
+          screen_name: 'Main ' + this.zone + ' page',
           app_version: version
         })
       }

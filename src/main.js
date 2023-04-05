@@ -31,7 +31,7 @@ const head = createHead()
 app.use(head)
 
 useHead({
-    title: 'Schengen visa days calculator',
+    title: 'Schengen visa days calculator | Welcome',
     meta: [
       { name: 'description', content: 'Track your schengen days to prevent visa violation' },
       { property: 'og:title', content: 'Schengen visa days calculator' },
