@@ -157,7 +157,7 @@ export default {
             console.log("No trips information for " + uid)
           }
           const count = this.trips.length
-          this.abroad = count > 0 ? this.trips[count - 1].abroad : false
+          this.abroad = count > 0 ? this.trips[0].abroad : false
           this.$emit('update:abroad', this.abroad)
         })
       } else {
