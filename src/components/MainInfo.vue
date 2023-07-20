@@ -15,7 +15,15 @@
       <v-card-text>
         <v-container v-if="abroad">
           <v-row>
-            <v-col>Already used days:</v-col><v-col>{{ spendDays }}</v-col>
+            <v-col v-if="startVisaWindow">Already used days (since {{ showUTCDate(startVisaWindow) }}):</v-col>
+            <v-col v-else>Already used days:</v-col>
+            <v-col>{{ spendDays }}</v-col>
+          </v-row>
+          <v-row>
+            <v-col>Days into home country (for tax residency, since {{ showUTCDate(startTaxWindow) }}):</v-col><v-col>{{ taxInDays }}</v-col>
+          </v-row>
+          <v-row>
+            <v-col>Days out of home country (for tax residency, since {{ showUTCDate(startTaxWindow) }}):</v-col><v-col>{{ taxOutDays }}</v-col>
           </v-row>
           <v-row v-if="!violation">
             <v-col>Days in the rest:</v-col><v-col>{{ maxAllowedDays }}</v-col>
@@ -26,7 +34,15 @@
         </v-container>
         <v-container v-else>
           <v-row>
-            <v-col>Already used days:</v-col><v-col>{{ spendDays }}</v-col>
+            <v-col v-if="startVisaWindow">Already used days (since {{ showUTCDate(startVisaWindow) }}):</v-col>
+            <v-col v-else>Already used days:</v-col>
+            <v-col>{{ spendDays }}</v-col>
+          </v-row>
+          <v-row>
+            <v-col>Days into home country (for tax residency, since {{ showUTCDate(startTaxWindow) }}):</v-col><v-col>{{ taxInDays }}</v-col>
+          </v-row>
+          <v-row>
+            <v-col>Days out of home country (for tax residency, since {{ showUTCDate(startTaxWindow) }}):</v-col><v-col>{{ taxOutDays }}</v-col>
           </v-row>
           <v-row>
             <v-col>Journey start date:</v-col>
@@ -91,6 +107,10 @@ export default {
       expectedDuration: null,
       plannedTrip: {},
       spendDays: null,
+      startVisaWindow: null,
+      taxOutDays: 0,
+      taxInDays: 365,
+      startTaxWindow: null,
       maxAllowedDays: null,
       dayToExit: null,
       tripDurations: [],
@@ -168,35 +188,85 @@ export default {
           const startOfYesterday = new Date(startOfToday.getTime() - this.dayLength)
           const endOfYesterday = new Date(startOfYesterday.getTime() + this.dayLength - 1)
           const startTimeWindow = endOfYesterday.getTime() - this.visaWindow * this.dayLength + 1
-          const tripsQuery = query(collectionRef, where("exit", ">=", startTimeWindow), orderBy("exit"))
-          const bufSize = this.visaWindow * 2
-          const pastTimeline = new Array(bufSize * 2)
-          const daySpendTimeline = new Array(bufSize * 2)
-          for (let i = 0; i < bufSize; i++) {
-            pastTimeline[i] = 0
-            daySpendTimeline[i] = 0
-          }
+          const startTaxWindowDate = new Date(startOfToday)
+          startTaxWindowDate.setFullYear(startTaxWindowDate.getFullYear() - 1)
+          const startTaxWindowTime = startTaxWindowDate.getTime()
+          const tripsQuery = query(collectionRef, where("exit", ">=", startTaxWindowTime), orderBy("exit"))
 
           tripInfo = await getDocs(tripsQuery)
                         .then((querySnap) => {
                           let spendDaysAtDate = 0
+                          let taxOutDays = 0
+                          const maxTaxDays = (startOfToday.getTime() - startTaxWindowTime) / this.dayLength
+                          const taxTimeline = new Array(maxTaxDays)
+                          for (let i = 0; i < maxTaxDays; i++) {
+                            taxTimeline[i] = 0
+                          }
+                          let taxInDays = maxTaxDays
+
+                          const bufSize = this.visaWindow * 2
+                          const pastTimeline = new Array(bufSize * 2)
+                          const daySpendTimeline = new Array(bufSize * 2)
+                          for (let i = 0; i < bufSize; i++) {
+                            pastTimeline[i] = 0
+                            daySpendTimeline[i] = 0
+                          }
+
                           let allowedEnterDayOffset = 0
                           let tripEndDayOffset = allowedDays - 1
                           let tripDuration = allowedDays
                           let tripEnterDate = new Date(startOfToday.getTime())
                           let tripLastDate = new Date(endOfToday.getTime() + tripEndDayOffset * this.dayLength)
                           let nextTripStartDate = new Date(startOfToday.getTime() + this.visaWindow * this.dayLength)
+                          let outsideBefore = false
+                          let abroadNow = false
                           if (!querySnap.empty) {
                             querySnap.docs.forEach((trip) => {
                               const tripData = trip.data()
-                              const startTrip = tripData.entry < startTimeWindow ? startTimeWindow : tripData.entry
-                              const endTrip = tripData.exit > endOfToday ? endOfToday : tripData.exit
-                              let firstDayIdx = (startTrip - startTimeWindow) / this.dayLength
-                              let lastDayIdx = (endTrip - (this.dayLength - 1) - startTimeWindow) / this.dayLength
-                              for (let i = firstDayIdx; i <= lastDayIdx; i++) {
-                                pastTimeline[i] = 1
+                              if (tripData.entry <= endOfToday.getTime()) {
+                                outsideBefore = tripData.entry < startTaxWindowTime
+                                const taxStartTrip = outsideBefore ? startTaxWindowTime : tripData.entry
+                                abroadNow = tripData.exit > endOfToday.getTime()
+                                const taxEndTrip = abroadNow ? endOfToday.getTime() : tripData.exit
+                                let firstTaxDayIdx = (taxStartTrip - startTaxWindowTime) / this.dayLength
+                                let lastTaxDayIdx = (taxEndTrip - (this.dayLength - 1) - startTaxWindowTime) / this.dayLength
+                                for (let i = firstTaxDayIdx; i <= lastTaxDayIdx; i++) {
+                                  taxTimeline[i] = 1
+                                }
+
+                                if (tripData.exit >= startTimeWindow)
+                                {
+                                  const startTrip = tripData.entry < startTimeWindow ? startTimeWindow : tripData.entry
+                                  const endTrip = tripData.exit > endOfToday.getTime() ? endOfToday.getTime() : tripData.exit
+                                  let firstDayIdx = (startTrip - startTimeWindow) / this.dayLength
+                                  let lastDayIdx = (endTrip - (this.dayLength - 1) - startTimeWindow) / this.dayLength
+                                  for (let i = firstDayIdx; i <= lastDayIdx; i++) {
+                                    pastTimeline[i] = 1
+                                  }
+                                }
                               }
                             })
+
+                            let tripTaxDuration = 0
+                            for (let i = 0; i < maxTaxDays; i++) {
+                              if (taxTimeline[i] > 0) {
+                                taxOutDays++
+                                if (tripTaxDuration < 2) {
+                                  tripTaxDuration++
+                                } else {
+                                  taxInDays--
+                                }
+                              } else {
+                                tripTaxDuration = 0
+                              }
+                            }
+                            if (outsideBefore) {
+                              taxInDays--
+                            }
+                            if (abroadNow) {
+                              taxInDays--
+                            }
+
                             for (let i = this.visaWindow - 1; i >=0; i--) {
                               spendDaysAtDate += pastTimeline[i]
                               daySpendTimeline[i] = spendDaysAtDate
@@ -230,7 +300,11 @@ export default {
                           if (startDate > expirationDate) {
                             return {
                                       violation: true,
+                                      startVisaWindow: new Date(startTimeWindow),
                                       spendDays: spendDaysAtDate,
+                                      taxOutDays: taxOutDays,
+                                      taxInDays: taxInDays,
+                                      startTaxWindow: startTaxWindowDate,
                                       duration: 0
                                   }
                           } else {
@@ -256,6 +330,10 @@ export default {
                             return {
                                       violation: false,
                                       spendDays: spendDaysAtDate,
+                                      startVisaWindow: new Date(startTimeWindow),
+                                      taxOutDays: taxOutDays,
+                                      taxInDays: taxInDays,
+                                      startTaxWindow: startTaxWindowDate,
                                       tripStartDate: tripEnterDate,
                                       tripEndDate: tripLastDate,
                                       duration: tripDuration,
@@ -277,6 +355,10 @@ export default {
       let startDate = new Date()
       let currentInfo = await this.calculatePlannedTrip(this.uid, new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0)), allowedDays, expirationDate, null)
       this.spendDays = currentInfo.spendDays
+      this.startVisaWindow = currentInfo.startVisaWindow
+      this.startTaxWindow = currentInfo.startTaxWindow
+      this.taxOutDays = currentInfo.taxOutDays
+      this.taxInDays = currentInfo.taxInDays
       this.maxAllowedDays = currentInfo.duration
       this.violation = currentInfo.violation
       this.dayToExit = currentInfo.violation ? null : currentInfo.tripEndDate
