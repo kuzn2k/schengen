@@ -8,5 +8,8 @@ service cloud.firestore {
       	allow read, write, create, update, delete: if request.auth != null && request.auth.uid == userUid;
       }
     }
+    match /countries/{document=**} {
+    	allow read: if request.auth != null;
+    }   
   }
 }

@@ -22,7 +22,9 @@
             <v-col>
               <VisaInfo ref="visaInfo" :uid="userUid" :db="db" :collection-name="collectionName" :issuer="issuer"
                               v-model:expiration-date="expirationDate"
-                              v-model:allowed-days="allowedDays" @update:refresh="refresh"/>
+                              v-model:allowed-days="allowedDays"
+                              v-model:domestic-country="domesticCountry"
+                              @update:refresh="refresh"/>
             </v-col>
           </v-row>
           <v-row v-if="expirationDate && allowedDays">
@@ -72,6 +74,7 @@ export default {
       email: null,
       expirationDate: null,
       allowedDays: null,
+      domesticCountry: null,
       abroad: null,
       isAnonymous: true,
       isLoggedIn: false,

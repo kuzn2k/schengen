@@ -34,6 +34,20 @@
                 ></v-text-field>
               </v-col>
             </v-row>
+            <v-row>
+              <v-col>Domestic country:</v-col>
+              <v-col>
+                <v-select
+                    v-model="domesticCountry"
+                    :items="countries"
+                    item-title="name"
+                    item-value="id"
+                    label="Domestic country"
+                    return-object
+                    single-line
+                ></v-select>
+              </v-col>
+            </v-row>
           </v-card-text>
         </v-form>
       </v-container>
@@ -42,7 +56,7 @@
         <v-spacer></v-spacer>
         <v-btn
             icon
-            :disabled="!valid || !changed"
+            :disabled="!valid || !changed || !domesticCountry"
             @click="save"
         >
           <v-icon icon="mdi-content-save-outline"></v-icon>
@@ -64,7 +78,7 @@
 </template>
 
 <script>
-import { doc, getDoc, setDoc } from "firebase/firestore"
+import { collection, doc, getDoc, setDoc, query, orderBy, getDocs } from "firebase/firestore"
 import Datepicker from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
 import { getAnalytics, logEvent } from 'firebase/analytics'
@@ -73,7 +87,7 @@ export default {
   name: 'VisaInfo',
   components: { Datepicker },
   props: ['uid', 'db', 'collectionName', 'issuer'],
-  emits: ['update:expirationDate', 'update:allowedDays', 'update:refresh'],
+  emits: ['update:expirationDate', 'update:allowedDays', 'update:domesticCountry', 'update:refresh'],
   data() {
     return {
       valid: true,
@@ -81,6 +95,8 @@ export default {
       localExpirationDate: null,
       expirationDate: null,
       allowedDays: null,
+      domesticCountry: null,
+      countries: [],
       daysRules: [
         v => !!v || 'Number is required',
         v => (v && v >= 1 && v <= 90 && new RegExp('^[1-9][0-9]*$').test('' + v)) || 'Number is required and it should be positive and no more than 90',
@@ -107,6 +123,7 @@ export default {
             ? navigator.languages[0]
             : navigator.language
     console.log("Locale=" + this.userLocale)
+    this.loadCountries();
     this.loadData()
   },
   methods: {
@@ -134,12 +151,28 @@ export default {
           }
           this.$emit('update:expirationDate', this.expirationDate)
           this.$emit('update:allowedDays', this.allowedDays)
+          this.$emit('update:domesticCountry', this.domesticCountry)
           this.$emit('update:refresh')
           this.changed = false
         })
       } else {
         console.log("Cannot get document for " + this.uid + " (db=" + this.db + ")")
       }
+    },
+    loadCountries () {
+      const collectionRef = collection(this.db, "countries")
+      const cQuery = query(collectionRef, orderBy("name", "asc"))
+      getDocs(cQuery).then((querySnap) => {
+          if (!querySnap.empty) {
+            this.countries = []
+            querySnap.docs.forEach(country => {
+              const countryData = country.data()
+              this.countries.push({id: countryData.id, name: countryData.name, zone: countryData.zone})
+            })
+          } else {
+            console.log("No countries")
+          }
+        })
     },
     revert () {
       this.loadData()
@@ -152,9 +185,11 @@ export default {
         const data = {}
         data[issuerModifier + "allowedDays"] = this.allowedDays * 1
         data[issuerModifier + "expirationDate"] = expirationDateMillis
+        data["domesticCountry"] = this.domesticCountry.id
         setDoc(ref, data, { merge: true }).then(() => {
           this.$emit('update:expirationDate', this.expirationDate)
           this.$emit('update:allowedDays', this.allowedDays)
+          this.$emit('update:domesticCountry', this.domesticCountry)
           console.log("Saved visa information for uid=" + this.uid)
           this.$emit('update:refresh')
           this.changed = false
