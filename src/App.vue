@@ -6,7 +6,7 @@
         <p class="text-right">{{ loggedUserTitle }}</p>
       </v-app-bar-title>
       <template v-slot:append>
-        <AuthBar v-model:user-uid="userUid" v-model:user-name="userName" v-model:is-anonymous="isAnonymous" v-model:is-logged-in="isLoggedIn" v-model:email="email"/>
+        <AuthBar/>
       </template>
     </v-app-bar>
     <v-parallax
@@ -15,20 +15,15 @@
       <v-main>
         <v-container v-if="isLoggedIn && userUid">
           <v-row>
-            <v-col><MainInfo ref="mainInfo" :uid="userUid" :db="db" :collection-name="collectionName"
-                          :expiration-date="expirationDate" :allowed-days="allowedDays" :abroad="abroad"/></v-col>
+            <v-col><MainInfo ref="mainInfo" :issuer="issuer"/></v-col>
           </v-row>
           <v-row>
             <v-col>
-              <VisaInfo ref="visaInfo" :uid="userUid" :db="db" :collection-name="collectionName" :issuer="issuer"
-                              v-model:expiration-date="expirationDate"
-                              v-model:allowed-days="allowedDays"
-                              v-model:domestic-country="domesticCountry"
-                              @update:refresh="refresh"/>
+              <VisaInfo ref="visaInfo" :issuer="issuer" @update:refresh="refresh"/>
             </v-col>
           </v-row>
-          <v-row v-if="expirationDate && allowedDays">
-            <v-col><TripsList :uid="userUid" :db="db" :collection-name="collectionName" :zone="zone" v-model:abroad="abroad" @update:refresh="refresh"/></v-col>
+          <v-row v-if="isVisaSelected">
+            <v-col><TripsList :zone="zone" @update:refresh="refresh"/></v-col>
           </v-row>
         </v-container>
         <v-container v-else>
@@ -57,6 +52,8 @@ import TripsList from './components/TripsList.vue'
 import { version } from '../package.json'
 import { getAnalytics, logEvent } from 'firebase/analytics'
 import { useHead } from 'unhead'
+import { useAppStore } from '@/stores/appStore'
+import { mapState } from 'pinia'
 
 export default {
   name: 'App',
@@ -69,30 +66,23 @@ export default {
   inject: ['database', 'collection'],
   data() {
     return {
-      userUid: null,
-      userName: null,
-      email: null,
-      expirationDate: null,
-      allowedDays: null,
-      domesticCountry: null,
       abroad: null,
-      isAnonymous: true,
-      isLoggedIn: false,
-      db: null,
-      collectionName: null,
       zone: 'Schengen',
       issuer: 'Schengen'
     }
   },
   computed: {
     loggedUserTitle() {
-      return this.isLoggedIn ? this.isAnonymous ? 'Demo' : (this.userName != null ? this.userName : '') + (this.email != null ? ' (' + this.email + ')' : '') : 'Please sign in or click Demo =>'
-    }
+      const appStore = useAppStore()
+      return this.isLoggedIn ? appStore.isAnonymous ? 'Demo' : (appStore.name != null ? appStore.name : '') + (appStore.email != null ? ' (' + appStore.email + ')' : '') : 'Please sign in or click Demo =>'
+    },
+    ...mapState(useAppStore, ['isLoggedIn','isVisaSelected']),
+    ...mapState(useAppStore, {
+      userUid: 'uid'
+    })
   },
   mounted() {
     console.log("Database " + this.database + ", collection: " + this.collection)
-    this.db = this.database
-    this.collectionName = this.collection
     const analytics = getAnalytics()
     logEvent(analytics, "page_view")
     logEvent(analytics, "screen_view", {
@@ -105,8 +95,6 @@ export default {
     isLoggedIn(newState) {
       const analytics = getAnalytics()
       if (!newState) {
-        this.expirationDate = null
-        this.allowedDays = null
         useHead({
           title: 'Schengen visa days calculator | Welcome',
         })
@@ -127,12 +115,11 @@ export default {
           app_version: version
         })
       }
-
     }
   },
   methods: {
     refresh() {
-      this.$refs.mainInfo.onChange(this.allowedDays, this.expirationDate)
+      this.$refs.mainInfo.onChange()
     }
   }
 }

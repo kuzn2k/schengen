@@ -45,6 +45,7 @@
                     label="Domestic country"
                     return-object
                     single-line
+                    @update:modelValue="changed = true"
                 ></v-select>
               </v-col>
             </v-row>
@@ -82,12 +83,15 @@ import { collection, doc, getDoc, setDoc, query, orderBy, getDocs } from "fireba
 import Datepicker from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
 import { getAnalytics, logEvent } from 'firebase/analytics'
+import { useAppStore } from '@/stores/appStore'
+import {mapActions, mapState} from 'pinia'
 
 export default {
   name: 'VisaInfo',
   components: { Datepicker },
-  props: ['uid', 'db', 'collectionName', 'issuer'],
-  emits: ['update:expirationDate', 'update:allowedDays', 'update:domesticCountry', 'update:refresh'],
+  inject: ['database', 'collection', 'countriesCollection'],
+  props: ['issuer'],
+  emits: ['update:refresh'],
   data() {
     return {
       valid: true,
@@ -126,14 +130,20 @@ export default {
     this.loadCountries();
     this.loadData()
   },
+  computed: {
+    ...mapState(useAppStore, ['uid'])
+  },
   methods: {
+    ...mapActions(useAppStore, ['addVisa', 'removeVisa']),
     loadData() {
-      if (this.uid != null && this.db != null && this.collectionName != null) {
-        const docRef = doc(this.db, this.collectionName, this.uid);
+      const appStore = useAppStore()
+      if (appStore.uid != null && this.database != null && this.collection != null) {
+        const zone = this.issuer.toLowerCase()
+        const docRef = doc(this.database, this.collection, appStore.uid);
         getDoc(docRef).then((docSnap) => {
           if (docSnap.exists()) {
             const visaInfo = docSnap.data()
-            const issuerModifier = this.issuer.toLowerCase() + "_"
+            const issuerModifier = zone + "_"
             this.allowedDays = visaInfo[issuerModifier + "allowedDays"]
             this.localExpirationDate = null
             const visaExpirationDate = visaInfo[issuerModifier + "expirationDate"]
@@ -141,30 +151,40 @@ export default {
               this.expirationDate = new Date(visaExpirationDate)
               this.localExpirationDate = new Date(this.expirationDate.getUTCFullYear(), this.expirationDate.getUTCMonth(), this.expirationDate.getUTCDate(), 23, 59, 59, 999)
             }
-            console.log("Loaded document for " + this.uid + " (db=" + this.db + ")")
+            const countryId = visaInfo['domesticCountry']
+            this.domesticCountry = this.countries.find((country) => country.id === countryId)
+            console.log("Loaded document for " + appStore.uid + " (db=" + this.database + ")")
             console.log("Expiration date " + this.expirationDate)
           } else {
             this.expirationDate = null
             this.localExpirationDate = null
             this.allowedDays = null
-            console.log("No journey information for " + this.uid)
+            console.log("No data for " + appStore.uid)
           }
-          this.$emit('update:expirationDate', this.expirationDate)
-          this.$emit('update:allowedDays', this.allowedDays)
-          this.$emit('update:domesticCountry', this.domesticCountry)
+          appStore.$patch((state) => {
+            if (this.expirationDate == null) {
+              this.removeVisa(zone)
+              state.isVisaSelected = false
+            } else {
+              this.addVisa(zone, {expirationDate: this.expirationDate, allowedDays: this.allowedDays})
+              state.isVisaSelected = true
+            }
+            state.domesticCountry = this.domesticCountry
+          })
           this.$emit('update:refresh')
           this.changed = false
         })
       } else {
-        console.log("Cannot get document for " + this.uid + " (db=" + this.db + ")")
+        console.log("Cannot get document for " + appStore.uid + " (db=" + this.database + ")")
       }
     },
     loadCountries () {
-      const collectionRef = collection(this.db, "countries")
+      const appStore = useAppStore()
+      this.countries = []
+      const collectionRef = collection(this.database, this.countriesCollection)
       const cQuery = query(collectionRef, orderBy("name", "asc"))
       getDocs(cQuery).then((querySnap) => {
           if (!querySnap.empty) {
-            this.countries = []
             querySnap.docs.forEach(country => {
               const countryData = country.data()
               this.countries.push({id: countryData.id, name: countryData.name, zone: countryData.zone})
@@ -173,23 +193,28 @@ export default {
             console.log("No countries")
           }
         })
+      appStore.countries = this.countries
     },
     revert () {
       this.loadData()
     },
     save () {
-      if (this.db != null && this.collectionName && this.uid != null ) {
-        const ref = doc(this.db, this.collectionName, this.uid)
+      if (this.database != null && this.collection && this.uid != null ) {
+        const appStore = useAppStore()
+        const ref = doc(this.database, this.collection, this.uid)
         let expirationDateMillis = this.expirationDate ? this.expirationDate.getTime() : null
-        const issuerModifier = this.issuer.toLowerCase() + "_"
+        const zone = this.issuer.toLowerCase()
+        const issuerModifier = zone + "_"
         const data = {}
         data[issuerModifier + "allowedDays"] = this.allowedDays * 1
         data[issuerModifier + "expirationDate"] = expirationDateMillis
         data["domesticCountry"] = this.domesticCountry.id
         setDoc(ref, data, { merge: true }).then(() => {
-          this.$emit('update:expirationDate', this.expirationDate)
-          this.$emit('update:allowedDays', this.allowedDays)
-          this.$emit('update:domesticCountry', this.domesticCountry)
+          appStore.$patch((state) => {
+            this.addVisa(zone, {expirationDate: this.expirationDate, allowedDays: this.allowedDays})
+            state.domesticCountry = this.domesticCountry
+            state.isVisaSelected = true
+          })
           console.log("Saved visa information for uid=" + this.uid)
           this.$emit('update:refresh')
           this.changed = false

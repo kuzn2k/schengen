@@ -34,11 +34,10 @@
 <script>
 import { GoogleAuthProvider, GithubAuthProvider, signInWithPopup, linkWithPopup, signOut, getAuth, onAuthStateChanged, signInAnonymously, signInWithEmailAndPassword } from "firebase/auth"
 import { getAnalytics, setUserId, logEvent } from "firebase/analytics"
+import { useAppStore } from '@/stores/appStore'
 
 export default {
   name: 'AuthBar',
-  props: ['userUid', 'userName', 'email', 'isLoggedIn', 'isAnonymous'],
-  emits: ['update:userUid', 'update:userName', 'update:email', 'update:isAnonymous', 'update:isLoggedIn'],
   data() {
     return {
       showMessage: false,
@@ -167,23 +166,28 @@ export default {
   mounted() {
     const auth = getAuth()
     onAuthStateChanged(auth, (user) => {
+      const appStore = useAppStore()
       let userUid = ''
       if (user) {
         console.log('Authenticated: userName=' + user.displayName + ',userUid=' + user.uid + ',anonymous=' + user.isAnonymous)
-        this.$emit('update:userUid', user.uid)
-        this.$emit('update:userName', user.displayName)
-        this.$emit('update:email', user.email)
-        this.$emit('update:isLoggedIn', true)
-        this.$emit('update:isAnonymous', user.isAnonymous)
+        appStore.$patch((state) => {
+          state.uid = user.uid
+          state.name = user.displayName
+          state.email = user.email
+          state.isLoggedIn = true
+          state.isAnonymous = user.isAnonymous
+        })
         this.anonymous = user.isAnonymous
         this.loggedIn = true
         userUid = user.uid 
       } else {
         console.log('Logged out')
-        this.$emit('update:userUid', null)
-        this.$emit('update:userName', null)
-        this.$emit('update:email', null)
-        this.$emit('update:isLoggedIn', false)
+        appStore.$patch((state) => {
+          state.uid = null
+          state.name = null
+          state.email = null
+          state.isLoggedIn = false
+        })
         this.loggedIn = false
       }
       setUserId(getAnalytics(), userUid)

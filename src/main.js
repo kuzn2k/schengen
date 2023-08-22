@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import 'vuetify/styles'
 import { createVuetify } from 'vuetify'
+import { createPinia } from 'pinia'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import App from './App.vue'
@@ -27,6 +28,10 @@ getAnalytics(firebaseApp);
 const database = getFirestore(firebaseApp)
 
 const app = createApp(App)
+
+const pinia = createPinia()
+app.use(pinia)
+
 const head = createHead()
 app.use(head)
 
@@ -40,6 +45,7 @@ useHead({
 
 app.provide('database', database)
 app.provide('collection', 'journeys')
+app.provide('countriesCollection', 'countries')
 
 const vuetify = createVuetify({
     components,

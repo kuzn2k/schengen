@@ -12,10 +12,11 @@
     "core-js": "^3.8.3",
     "firebase": "^9.12.1",
     "firebase-tools": "^11.23.1",
+    "pinia": "^2.1.6",
     "unhead": "^1.1.25",
-    "vue": "^3.2.41",
+    "vue": "^3.3.0",
     "vue-debounce": "^4.0.0",
-    "vuetify": "^v3.0.0-beta.13"
+    "vuetify": "^3.3.13"
   },
   "devDependencies": {
     "@babel/core": "^7.12.16",

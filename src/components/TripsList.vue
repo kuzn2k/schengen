@@ -94,12 +94,15 @@
 import {collection, query, where, orderBy, getDocs, updateDoc, addDoc, deleteDoc} from "firebase/firestore"
 import Datepicker from "@vuepic/vue-datepicker"
 import { getAnalytics, logEvent } from "firebase/analytics"
+import { useAppStore } from '@/stores/appStore'
+import { mapState } from 'pinia'
 
 export default {
   name: 'TripInfo',
   components: { Datepicker },
-  props: ['uid', 'db', 'collectionName', 'zone'],
-  emits: ['update:abroad', 'update:refresh'],
+  inject: ['database', 'collection', 'countriesCollection'],
+  props: ['zone'],
+  emits: ['update:refresh'],
   data() {
     return {
       abroad: false,
@@ -114,6 +117,9 @@ export default {
             : navigator.language
     this.loadData(this.uid)            
   },
+  computed: {
+    ...mapState(useAppStore, ['uid'])
+  },
   watch: {
     uid(newUid, oldUid) {
       if (newUid != null && oldUid == null) {
@@ -123,8 +129,8 @@ export default {
   },
   methods: {
     loadData(uid) {
-      if (uid != null && this.db != null && this.collectionName != null) {
-        const collectionRef = collection(this.db, this.collectionName, uid, "trips")
+      if (uid != null && this.database != null && this.collection != null) {
+        const collectionRef = collection(this.database, this.collection, uid, "trips")
         const tripsQuery = query(collectionRef, where("zone", "==", this.zone.toLowerCase()), orderBy("exit", "desc"))
         getDocs(tripsQuery).then((querySnap) => {
           if (!querySnap.empty) {
@@ -158,10 +164,10 @@ export default {
           }
           const count = this.trips.length
           this.abroad = count > 0 ? this.trips[0].abroad : false
-          this.$emit('update:abroad', this.abroad)
+          useAppStore().abroad = this.abroad
         })
       } else {
-        console.log("Cannot get document for " + uid + " (db=" + this.db + ")")
+        console.log("Cannot get document for " + uid + " (db=" + this.database + ")")
       }
     },
     formatDate(date) {
@@ -207,13 +213,13 @@ export default {
               item.changed = false
               item.edit = false
               this.abroad = item.abroad
-              this.$emit('update:abroad', this.abroad)
+              useAppStore().abroad = this.abroad
               this.$emit('update:refresh')
               logEvent(getAnalytics(), 'update_trip')
             }
         )
       } else {
-        const collectionRef = collection(this.db, this.collectionName, this.uid, "trips")
+        const collectionRef = collection(this.database, this.collection, this.uid, "trips")
         addDoc(collectionRef, newData).then((doc) => {
           item.doc = doc
           console.log("Created trip record: " + item.doc)
@@ -221,7 +227,7 @@ export default {
           item.edit = false
           item.new = false
           this.abroad = item.abroad
-          this.$emit('update:abroad', this.abroad)
+          useAppStore().abroad = this.abroad
           this.$emit('update:refresh')
           logEvent(getAnalytics(), 'add_trip')
         })
@@ -247,7 +253,7 @@ export default {
           this.deleteItem(item)
           const count = this.trips.length
           this.abroad = count > 0 ? this.trips[count - 1].abroad : false
-          this.$emit('update:abroad', this.abroad)
+          useAppStore().abroad = this.abroad
           this.$emit('update:refresh')
           logEvent(getAnalytics(), 'delete_trip')
         })

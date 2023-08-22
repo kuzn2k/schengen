@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid v-if="expirationDate && allowedDays">
+  <v-container fluid v-if="isVisaSelected">
     <v-card border density="comfortable">
       <v-card-title v-if="abroad">
         <p v-if="!violation">
@@ -95,12 +95,15 @@ import {collection, orderBy, where, query, getDocs} from "firebase/firestore"
 import Datepicker from '@vuepic/vue-datepicker'
 import { debounce } from 'vue-debounce'
 import { getAnalytics, logEvent } from 'firebase/analytics'
+import { useAppStore } from '@/stores/appStore'
+import { mapState } from 'pinia'
 
 export default {
   name: 'MainInfo',
   components: { Datepicker },
+  inject: ['database', 'collection', 'countriesCollection'],
+  props: ['issuer'],
   expose: ['onChange'],
-  props: ['uid', 'db', 'collectionName', 'expirationDate', 'allowedDays', 'abroad'],
   data() {
     return {
       desirableDate: new Date(),
@@ -130,6 +133,7 @@ export default {
             : navigator.language
   },
   computed: {
+    ...mapState(useAppStore, ['uid', 'abroad', 'isVisaSelected']),
     minDate() {
       let now = new Date()
       if (this.plannedTrip.violation && this.plannedTrip.tripStartDate)
@@ -141,8 +145,10 @@ export default {
     },
     maxDate() {
       let date
-      if (this.expirationDate) {
-        date = new Date(this.expirationDate.getUTCFullYear(), this.expirationDate.getUTCMonth(), this.expirationDate.getUTCDate(), 23, 59, 59, 999)
+      const appStore = useAppStore()
+      const visa = appStore.getVisaOrPermit(this.issuer)
+      if (visa.expirationDate) {
+        date = new Date(visa.expirationDate.getUTCFullYear(), visa.expirationDate.getUTCMonth(), visa.expirationDate.getUTCDate(), 23, 59, 59, 999)
       } else {
         date = new Date()
         date.setHours(0, 0, 0, 0)
@@ -157,7 +163,9 @@ export default {
       }
     },
     expectedDuration(newValue, oldValue) {
-      if (this.uid && this.desirableDate && newValue !== oldValue && (newValue == null || newValue == '' || (newValue > 0 && newValue <= this.allowedDays))) {
+      const appStore = useAppStore()
+      const visa = appStore.getVisaOrPermit(this.issuer)
+      if (this.uid && this.desirableDate && newValue !== oldValue && (newValue == null || newValue == '' || (newValue > 0 && newValue <= visa.allowedDays))) {
         debounce(() => this.updatePlan(), '400ms')()
       }
     }    
@@ -180,8 +188,8 @@ export default {
     },
     async calculatePlannedTrip(uid, startDate, allowedDays, expirationDate, expectedDuration) {
       let tripInfo = {}
-      if (this.db != null && this.collectionName != null && allowedDays && expirationDate) {
-          const collectionRef = collection(this.db, this.collectionName, uid, "trips")
+      if (this.database != null && this.collection != null && allowedDays && expirationDate) {
+          const collectionRef = collection(this.database, this.collection, uid, "trips")
           const startOfToday = new Date(startDate.getTime())
           startOfToday.setUTCHours(0, 0, 0, 0)
           const endOfToday = new Date(startOfToday.getTime() + this.dayLength - 1)
@@ -349,28 +357,34 @@ export default {
     },
     async planTrip(newPlannedDate, duration) {
       let startDate = new Date(newPlannedDate)
-      return this.calculatePlannedTrip(this.uid, new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0)), this.allowedDays, this.expirationDate, duration)
+      const appStore = useAppStore()
+      const visa = appStore.getVisaOrPermit(this.issuer)
+      return this.calculatePlannedTrip(this.uid, new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0)), visa.allowedDays, visa.expirationDate, duration)
     },
-    async onChange(allowedDays, expirationDate) {
-      let startDate = new Date()
-      let currentInfo = await this.calculatePlannedTrip(this.uid, new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0)), allowedDays, expirationDate, null)
-      this.spendDays = currentInfo.spendDays
-      this.startVisaWindow = currentInfo.startVisaWindow
-      this.startTaxWindow = currentInfo.startTaxWindow
-      this.taxOutDays = currentInfo.taxOutDays
-      this.taxInDays = currentInfo.taxInDays
-      this.maxAllowedDays = currentInfo.duration
-      this.violation = currentInfo.violation
-      this.dayToExit = currentInfo.violation ? null : currentInfo.tripEndDate
-      if (!this.desirableDate)
-      {
-        this.plannedTrip = currentInfo
-      } else {
-        const journeyDate = new Date(this.desirableDate)
-        if (startDate.getFullYear() !== journeyDate.getFullYear() || startDate.getMonth() !== journeyDate.getMonth() || startDate.getDate() !== journeyDate.getDate() || this.expectedDuration) {
-          this.plannedTrip = await this.planTrip(this.desirableDate, this.expectedDuration)
-        } else {
+    async onChange() {
+      if (this.isVisaSelected) {
+        const appStore = useAppStore()
+        const visa = appStore.getVisaOrPermit(this.issuer)
+        let startDate = new Date()
+        let currentInfo = await this.calculatePlannedTrip(this.uid, new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0)), visa.allowedDays, visa.expirationDate, null)
+        this.spendDays = currentInfo.spendDays
+        this.startVisaWindow = currentInfo.startVisaWindow
+        this.startTaxWindow = currentInfo.startTaxWindow
+        this.taxOutDays = currentInfo.taxOutDays
+        this.taxInDays = currentInfo.taxInDays
+        this.maxAllowedDays = currentInfo.duration
+        this.violation = currentInfo.violation
+        this.dayToExit = currentInfo.violation ? null : currentInfo.tripEndDate
+        if (!this.desirableDate)
+        {
           this.plannedTrip = currentInfo
+        } else {
+          const journeyDate = new Date(this.desirableDate)
+          if (startDate.getFullYear() !== journeyDate.getFullYear() || startDate.getMonth() !== journeyDate.getMonth() || startDate.getDate() !== journeyDate.getDate() || this.expectedDuration) {
+            this.plannedTrip = await this.planTrip(this.desirableDate, this.expectedDuration)
+          } else {
+            this.plannedTrip = currentInfo
+          }
         }
       }
     }
