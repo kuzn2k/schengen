@@ -19,6 +19,7 @@
             <v-card border density="comfortable" v-for="item in trips" :key="item.idx">
               <v-card-text>
                 <v-container fluid>
+                  <v-row><v-col>From country:</v-col><v-col>{{ item.fromCountry?.name }}</v-col></v-row>
                   <v-row>
                     <v-col>Start date:</v-col>
                     <v-col>
@@ -35,6 +36,21 @@
                     </v-col>
                   </v-row>
                   <v-row>
+                    <v-col>To country:</v-col>
+                    <v-col>
+                      <v-select
+                        v-model="item.toCountry"
+                        :items="countries"
+                        item-title="name"
+                        item-value="id"
+                        return-object
+                        single-line
+                        :disabled="!item.edit"
+                        @update:modelValue="item.changed = true"
+                      ></v-select>
+                    </v-col>
+                  </v-row>
+                  <v-row>
                     <v-col>End date:</v-col>
                     <v-col>
                       <Datepicker v-model="item.localEnd"
@@ -47,6 +63,21 @@
                                   modelType="timestamp"
                                   @update:modelValue="item.changed = true; item.abroad = !item.localEnd"
                       />
+                    </v-col>
+                  </v-row>
+                  <v-row>
+                    <v-col>Return country:</v-col>
+                    <v-col>
+                      <v-select
+                        v-model="item.returnCountry"
+                        :items="countries"
+                        item-title="name"
+                        item-value="id"
+                        return-object
+                        single-line
+                        :disabled="!item.edit"
+                        @update:modelValue="item.changed = true"
+                      ></v-select>
                     </v-col>
                   </v-row>
                 </v-container>
@@ -91,7 +122,7 @@
 
 <script>
 
-import {collection, query, where, orderBy, getDocs, updateDoc, addDoc, deleteDoc} from "firebase/firestore"
+import {collection, query, orderBy, getDocs, updateDoc, addDoc, deleteDoc} from "firebase/firestore"
 import Datepicker from "@vuepic/vue-datepicker"
 import { getAnalytics, logEvent } from "firebase/analytics"
 import { useAppStore } from '@/stores/appStore'
@@ -100,7 +131,7 @@ import { mapState } from 'pinia'
 export default {
   name: 'TripInfo',
   components: { Datepicker },
-  inject: ['database', 'collection', 'countriesCollection'],
+  inject: ['database', 'collection'],
   props: ['zone'],
   emits: ['update:refresh'],
   data() {
@@ -118,7 +149,7 @@ export default {
     this.loadData(this.uid)            
   },
   computed: {
-    ...mapState(useAppStore, ['uid'])
+    ...mapState(useAppStore, ['uid', 'countries', 'domesticCountry'])
   },
   watch: {
     uid(newUid, oldUid) {
@@ -131,7 +162,7 @@ export default {
     loadData(uid) {
       if (uid != null && this.database != null && this.collection != null) {
         const collectionRef = collection(this.database, this.collection, uid, "trips")
-        const tripsQuery = query(collectionRef, where("zone", "==", this.zone.toLowerCase()), orderBy("exit", "desc"))
+        const tripsQuery = query(collectionRef, orderBy("exit", "desc"))
         getDocs(tripsQuery).then((querySnap) => {
           if (!querySnap.empty) {
             this.trips = []
@@ -145,18 +176,31 @@ export default {
                 endDate = new Date(tripData.exit)
                 localEndDate = new Date(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(), 23, 59, 59, 999)  
               }
+              const toCountry = this.countries.find((country) => country.id === tripData.toCountry)
+              const returnCountry = this.countries.find((country) => country.id === tripData.returnCountry)
               this.trips.push({
                 idx: index,
                 oldStartDate: localStartDate,
                 localStart: localStartDate,
                 oldEndDate: localEndDate,
                 localEnd: localEndDate,
+                toCountry: toCountry,
+                returnCountry: returnCountry,
+                oldToCountry: toCountry,
+                oldReturnCountry: returnCountry,
                 changed: false,
                 edit: false,
-                abroad: tripData.exit === Number.MAX_VALUE,
+                abroad: tripData.exit === Number.MAX_VALUE || returnCountry ? returnCountry.id != this.domesticCountry.id : false,
                 doc: trip.ref
               })
             })
+            if (this.trips.length > 0) {
+              let fromCountry = this.domesticCountry
+              for (let i = this.trips.length - 1; i >= 0; i--) {
+                this.trips[i].fromCountry = fromCountry
+                fromCountry = this.trips[i].returnCountry
+              }
+            }
             console.log("Loaded trips for " + uid + " (count=" + this.trips.length + ")")
           } else {
             this.trips = []
@@ -186,7 +230,9 @@ export default {
       } else {
         item.localStart = item.oldStartDate
         item.localEnd = item.oldEndDate
-        item.abroad = !item.localEnd
+        item.abroad = !item.localEnd || item.oldReturnCountry ? item.oldReturnCountry.id != this.domesticCountry.id : false
+        item.returnCountry = item.oldReturnCountry
+        item.toCountry = item.oldToCountry
       }
     },
     saveTrip(item) {
@@ -196,15 +242,17 @@ export default {
       if (item.localEnd) {
         const localEnd = new Date(item.localEnd)
         endDay = new Date(Date.UTC(localEnd.getFullYear(), localEnd.getMonth(), localEnd.getDate(), 23, 59, 59, 999))
-        item.abroad = false
+        item.abroad = item.returnCountry ? item.returnCountry.id != this.domesticCountry.id : false
       } else {
         item.localEnd = null
         item.abroad = true
       }
       const newData = {
-        zone: this.zone.toLowerCase(),
+        zone: item.toCountry ? item.toCountry.zone : this.zone.toLowerCase(),
         entry: startDay.getTime(),
-        exit: item.abroad ? Number.MAX_VALUE : (endDay ? endDay.getTime() : null)
+        exit: !item.localEnd ? Number.MAX_VALUE : (endDay ? endDay.getTime() : null),
+        returnCountry: item.returnCountry ? item.returnCountry.id : null,
+        toCountry: item.toCountry ? item.toCountry.id : null
       }
       if (item.doc)
       {
@@ -235,6 +283,7 @@ export default {
     },
     addTrip() {
       const newIdx = 0
+      const fromCountry = this.trips.length > 0 ? (this.trips[0].returnCountry ? this.trips[0].returnCountry : this.domesticCountry) : this.domesticCountry
       this.trips.splice(0, 0, {
         idx: newIdx,
         start: null,
@@ -242,6 +291,8 @@ export default {
         changed: false,
         edit: true,
         abroad: true,
+        returnCountry: this.domesticCountry,
+        fromCountry: fromCountry,
         new: true
       })
       this.restoreIndex(0)
